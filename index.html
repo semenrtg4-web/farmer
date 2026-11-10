@@ -1,0 +1,1791 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1408">
+<title>Needle in the Haystack — Найди иголку</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-1: #12100e; --bg-2: #1c1916; 
+    --panel: rgba(35, 30, 25, 0.7); --panel-hover: rgba(45, 40, 35, 0.85);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #f0e6d0; --muted: #a8946a;
+    --accent: #e8b04a; --accent-2: #cc8a30;
+    --success: #6fcf6f; --danger: #e05555; --blue: #5fb8ff;
+    --radius: 14px; --font: 'Rubik', system-ui, sans-serif;
+  }
+  body.light {
+    --bg-1: #e8ddc0; --bg-2: #f5eeda; 
+    --panel: rgba(255, 255, 255, 0.7); --panel-hover: rgba(255, 255, 255, 0.9);
+    --border: rgba(0, 0, 0, 0.1);
+    --text: #3a2e14; --muted: #8a7648;
+    --accent: #c98a1c; --accent-2: #a8700c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { height: 100%; }
+  body {
+    font-family: var(--font);
+    background: radial-gradient(circle at 30% 10%, var(--bg-2), var(--bg-1));
+    color: var(--text); min-height: 100vh; overflow-x: hidden;
+    transition: background 0.4s, color 0.3s;
+    -webkit-text-size-adjust: 100%; overscroll-behavior: none;
+  }
+  #app { max-width: 1100px; margin: 0 auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 100vh; }
+  
+  .glass { background: var(--panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 14px; }
+  .topbar h1 { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+  .topbar h1 small { font-size: 11px; color: var(--muted); font-weight: 600; display: block; }
+  .res { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+  .res .item { display: flex; flex-direction: column; align-items: flex-end; }
+  .res .item .l { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .res .item .v { font-weight: 800; font-size: 18px; color: var(--accent); transition: transform 0.1s, color 0.2s; }
+  .res .item .v.pop { transform: scale(1.2); color: var(--success); }
+  .themeBtn { background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: var(--text); width: 38px; height: 38px; border-radius: 50%; font-size: 18px; cursor: pointer; transition: transform 0.2s; }
+  .themeBtn:hover { transform: rotate(15deg) scale(1.1); }
+
+  .tabs { display: flex; gap: 4px; overflow-x: auto; padding: 6px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; padding: 10px 18px; border: none; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; border-radius: 10px; cursor: pointer; transition: all 0.2s; font-family: inherit; white-space: nowrap; }
+  .tab.active { background: var(--accent); color: #12100e; box-shadow: 0 4px 12px rgba(232,176,74,0.3); }
+  .tab:hover:not(.active) { background: rgba(255,255,255,0.05); color: var(--text); }
+  .tab .badge { display: inline-block; background: var(--danger); color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-left: 4px; font-weight: 800; vertical-align: middle; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+
+  .panel { display: none; padding: 16px; animation: fadeSlide 0.3s ease-out; }
+  .panel.active { display: block; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .panel h2 { font-size: 16px; color: var(--accent); margin-bottom: 10px; font-weight: 800; }
+  .panel p.desc { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; font-weight: 400; }
+
+  #worldWrap { position: relative; width: 100%; border-radius: var(--radius); overflow: hidden; border: 2px solid rgba(255,255,255,0.05); background: #1a1408; user-select: none; touch-action: none; aspect-ratio: 4 / 3; max-height: 70vh; box-shadow: inset 0 0 50px rgba(0,0,0,0.5); }
+  #worldCanvas { display: block; width: 100%; height: 100%; cursor: pointer; }
+  #worldHud { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 11px; pointer-events: none; z-index: 3; }
+  .wcell { background: rgba(0,0,0,0.6); border-radius: 8px; padding: 5px 10px; color: #f0e6d0; font-weight: 700; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 6px; }
+  .wcell span { color: var(--accent); }
+  .wcell.equip { background: rgba(111,207,111,0.15); border-color: rgba(111,207,111,0.3); color: #c8ffc8; }
+  .wcell.autoon { background: rgba(232,176,74,0.15); border-color: rgba(232,176,74,0.3); color: #ffe4a0; }
+  .wcell.autooff { background: rgba(224,85,85,0.15); border-color: rgba(224,85,85,0.3); color: #ffc0c0; }
+
+  #searchBarWrap { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 60%; max-width: 300px; background: rgba(0,0,0,0.6); border-radius: 10px; padding: 3px; border: 1px solid rgba(255,255,255,0.1); pointer-events: none; z-index: 3; display: none; }
+  #searchBarWrap.active { display: block; }
+  #searchBar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+  #searchFill { height: 100%; width: 0%; background: var(--accent); transition: width 0.2s; box-shadow: 0 0 10px var(--accent); }
+
+  #worldMsg { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 3; white-space: nowrap; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
+  #worldMsg.show { opacity: 1; }
+
+  .mobileControls { position: absolute; inset: 0; pointer-events: none; z-index: 2; display: none; }
+  .mobileControls .dpad { position: absolute; bottom: 20px; left: 20px; display: grid; grid-template-columns: repeat(3, 70px); grid-template-rows: repeat(3, 70px); gap: 4px; pointer-events: auto; opacity: 0.7; }
+  .mobileControls .dpad button { width: 70px; height: 70px; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 12px; font-size: 28px; cursor: pointer; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; }
+  .mobileControls .dpad button:active { background: rgba(232,176,74,0.8); color: #000; transform: scale(0.95); }
+  .mobileControls .actionBtn { position: absolute; bottom: 30px; right: 20px; width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #e8b04a, #cc8a30); border: 2px solid #fff; color: #1a1408; font-size: 13px; font-weight: 900; cursor: pointer; pointer-events: auto; display: flex; align-items: center; justify-content: center; text-align: center; user-select: none; box-shadow: 0 6px 20px rgba(0,0,0,0.4); touch-action: none; transition: all 0.2s; }
+  .mobileControls .actionBtn:active { transform: scale(0.9); }
+  .mobileControls .actionBtn.deposit { background: linear-gradient(135deg, #6fcf6f, #3fa03f); color: #fff; box-shadow: 0 6px 20px rgba(111,207,111,0.4); }
+
+  .btn { padding: 10px 18px; border: none; border-radius: 10px; font-weight: 700; font-size: 13px; font-family: inherit; cursor: pointer; color: #12100e; background: linear-gradient(135deg, var(--accent), var(--accent-2)); transition: all 0.15s; margin: 3px 3px 3px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 15px rgba(0,0,0,0.3); }
+  .btn:active { transform: translateY(1px) scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); box-shadow: none; }
+  .btn.ghost:hover { background: rgba(255,255,255,0.05); border-color: var(--accent); }
+  .btn.danger { background: linear-gradient(135deg, #e05555, #a83030); color: #fff; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s; position: relative; overflow: hidden; }
+  .card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+  .card.owned { border-color: rgba(111,207,111,0.3); background: rgba(111,207,111,0.05); }
+  .card.equipped { border-color: var(--success); box-shadow: 0 0 15px rgba(111,207,111,0.15) inset; background: rgba(111,207,111,0.1); }
+  .card.locked { opacity: 0.6; filter: grayscale(0.5); }
+  .card.flash { animation: cardFlash 0.4s; }
+  @keyframes cardFlash { 0% { background: rgba(111,207,111,0.4); } 100% { background: rgba(255,255,255,0.03); } }
+  
+  .card .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card .name { font-weight: 800; font-size: 14px; color: var(--text); }
+  .card .icon { width: 40px; height: 40px; background: rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+  .card .equippedTag { display: inline-block; font-size: 9px; background: var(--success); color: #0a2a0a; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 800; vertical-align: middle; }
+  .card .desc { font-size: 12px; color: var(--muted); line-height: 1.4; flex: 1; }
+  .card .bonus { font-size: 11px; color: var(--success); font-weight: 700; margin-top: 2px; }
+  .card .price { font-weight: 800; font-size: 14px; color: var(--accent); display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 4px; }
+  .card .price .cnt { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .card .lvlBarWrap { height: 4px; background: rgba(0,0,0,0.3); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .card .lvlBar { height: 100%; background: var(--accent); border-radius: 2px; }
+  
+  .card button { padding: 8px 12px; font-size: 13px; border: none; border-radius: 8px; font-family: inherit; font-weight: 800; cursor: pointer; background: var(--accent); color: #12100e; transition: all 0.15s; flex: 1; box-shadow: 0 3px 6px rgba(0,0,0,0.2); }
+  .card button:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  .card button:active:not(:disabled) { transform: scale(0.97); }
+  .card button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+  .card .btnRow { display: flex; gap: 6px; margin-top: 4px; }
+  .card button.equipBtn { background: transparent; color: var(--success); border: 1px solid var(--success); flex: 0 0 auto; font-size: 12px; box-shadow: none; }
+  .card button.equipBtn.on { background: var(--success); color: #0a2a0a; }
+
+  .craftRow { display: flex; align-items: center; justify-content: space-between; padding: 12px; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; flex-wrap: wrap; transition: all 0.2s; }
+  .craftRow:hover { background: rgba(255,255,255,0.05); }
+  .craftRow .info { flex: 1; min-width: 140px; }
+  .craftRow .info .n { font-weight: 800; font-size: 14px; }
+  .craftRow .info .d { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  
+  .needleCollection { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 10px; }
+  .needleCard { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; height: 65px; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; transition: all 0.2s; position: relative; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+  .needleCard:hover { transform: scale(1.1) rotate(5deg); border-color: var(--accent); background: rgba(232,176,74,0.1); }
+  .needleCard.locked { opacity: 0.15; cursor: default; filter: grayscale(1); }
+  .needleCard.locked:hover { transform: none; border-color: var(--border); background: rgba(255,255,255,0.03); }
+
+  .achCard { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; gap: 14px; align-items: flex-start; transition: all 0.2s; }
+  .achCard.done { border-color: rgba(111,207,111,0.4); background: rgba(111,207,111,0.08); box-shadow: 0 0 20px rgba(111,207,111,0.1) inset; }
+  .achCard .achIcon { width: 48px; height: 48px; background: rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .achCard .achBody { flex: 1; }
+  .achCard .achTitle { font-weight: 800; font-size: 15px; color: var(--text); margin-bottom: 2px; }
+  .achCard .achDesc { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .achCard .achReward { font-size: 13px; font-weight: 800; color: var(--accent); }
+  .achCard .achStatus { font-size: 12px; font-weight: 800; margin-top: 6px; }
+  .achCard .achStatus.done { color: var(--success); }
+  .achCard .achStatus.progress { color: var(--muted); }
+  .achCard .progressBar { height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .achCard .progressFill { height: 100%; background: var(--accent); border-radius: 3px; }
+
+  #log { max-height: 120px; overflow-y: auto; font-size: 12px; font-family: 'Consolas', monospace; color: var(--muted); background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; line-height: 1.6; margin-top: 12px; }
+  #log .ok { color: var(--success); }
+  #log .warn { color: var(--accent); }
+  #log .bad { color: var(--danger); }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal-overlay.show { display: flex; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: var(--panel); border: 2px solid var(--accent); border-radius: var(--radius); padding: 24px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .modal h2 { color: var(--accent); font-size: 22px; margin-bottom: 12px; font-weight: 800; }
+  .modal p { font-size: 14px; color: var(--text); line-height: 1.6; margin-bottom: 20px; }
+
+  #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--panel); border: 1px solid var(--accent); padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 700; opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 200; pointer-events: none; max-width: 90vw; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  #achievementContainer { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column-reverse; gap: 10px; pointer-events: none; align-items: center; }
+  .achievement { background: linear-gradient(135deg, #2a2010, #12100e); border: 2px solid var(--accent); border-radius: 12px; padding: 14px 20px; color: #fff; display: flex; align-items: center; gap: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); transform: translateY(100px); opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden; min-width: 300px; }
+  .achievement::before { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); animation: shine 1.5s infinite; }
+  @keyframes shine { 100% { left: 100%; } }
+  .achievement.show { transform: translateY(0); opacity: 1; }
+  .achievement .icon { font-size: 32px; }
+  .achievement .text h4 { color: var(--accent); font-size: 12px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+  .achievement .text p { font-size: 15px; font-weight: 800; }
+
+  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 1000; transition: opacity 0.1s; }
+  #flash.active { opacity: 0.3; }
+
+  #pttBtn {
+    position: fixed; bottom: 150px; right: 20px; width: 70px; height: 70px; border-radius: 50%;
+    background: var(--accent); border: 3px solid #fff; font-size: 30px; z-index: 999; cursor: pointer;
+    display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: transform 0.1s, background 0.2s;
+    user-select: none; align-items: center; justify-content: center;
+  }
+  #pttBtn:active { transform: scale(0.9); }
+
+  @media (max-width: 768px), (pointer: coarse) {
+    #app { padding: 6px; gap: 6px; }
+    .topbar { padding: 6px 10px; gap: 6px; flex-wrap: nowrap; }
+    .topbar h1 { font-size: 14px; flex: 1; min-width: 0; }
+    .topbar h1 small { font-size: 10px; }
+    .themeBtn { width: 34px; height: 34px; font-size: 16px; }
+    .res { order: 3; width: 100%; justify-content: space-between; gap: 8px; font-size: 11px; padding-top: 6px; border-top: 1px solid var(--border); margin-top: 4px; }
+    .res .item { align-items: center; flex: 1; }
+    .res .item .l { font-size: 9px; }
+    .res .item .v { font-size: 15px; }
+    .tabs { padding: 3px; gap: 2px; }
+    .tab { padding: 10px 12px; font-size: 12px; min-height: 42px; }
+    .panel { padding: 10px; }
+    #worldWrap { height: 58vh; max-height: 58vh; min-height: 320px; border-width: 1px; }
+    #worldHud { font-size: 10px; gap: 3px; top: 6px; left: 6px; }
+    .wcell { padding: 4px 8px; font-size: 10px; }
+    .mobileControls { display: block; }
+    #log { display: none; }
+    .grid { grid-template-columns: 1fr; gap: 8px; }
+    .card { padding: 12px; }
+    .card button { padding: 12px 14px; font-size: 14px; min-height: 48px; }
+    #achievementContainer { bottom: 120px; width: 90%; }
+    .achievement { min-width: 100%; padding: 12px; }
+    .needleCollection { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
+    .needleCard { height: 50px; font-size: 24px; }
+    #pttBtn { display: flex; }
+  }
+  @media (max-width: 380px) {
+    .mobileControls .dpad { grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); bottom: 12px; left: 12px; }
+    .mobileControls .dpad button { width: 60px; height: 60px; font-size: 24px; }
+    .mobileControls .actionBtn { width: 85px; height: 85px; bottom: 15px; right: 12px; font-size: 12px; }
+    #worldWrap { height: 55vh; min-height: 280px; }
+    #pttBtn { bottom: 130px; width: 60px; height: 60px; font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+<div id="achievementContainer"></div>
+
+<div id="app">
+  <div class="topbar glass">
+    <h1>🧵 Needle in the Haystack<small>Иголок: <span id="needlesFound">0</span>/24 · <span id="locName">Склад</span></small></h1>
+    <div class="res">
+      <div class="item"><span class="l">Сено</span><span class="v" id="rHay">0</span></div>
+      <div class="item"><span class="l">Деньги</span><span class="v" id="rMoney">0</span></div>
+      <div class="item"><span class="l">Иголки</span><span class="v" id="rNeedles">0</span></div>
+      <div class="item"><span class="l">Пассив</span><span class="v off" id="rRate">0</span></div>
+    </div>
+    <button class="themeBtn glass" id="themeBtn" title="Тема">🌙</button>
+  </div>
+
+  <div class="tabs glass">
+    <button class="tab active" data-tab="world">🎮 Склад</button>
+    <button class="tab" data-tab="shop">🛒 Магазин</button>
+    <button class="tab" data-tab="tech">🌳 Технологии</button>
+    <button class="tab" data-tab="craft">⚙️ Переработка</button>
+    <button class="tab" data-tab="achievements">🏆 Достижения</button>
+    <button class="tab" data-tab="collection">🧵 Коллекция</button>
+    <button class="tab" data-tab="locations">🗺️ Локации</button>
+    <button class="tab" data-tab="customize">👒 Персонаж</button>
+    <button class="tab" data-tab="stats">📊 Статистика</button>
+  </div>
+
+  <div class="panel active glass" id="panel-world">
+    <h2>Склад</h2>
+    <p class="desc">WASD / стрелки — ходить. Пробел / E — собрать сено или сдать на базе. Клик/тап по куче — идти к ней.</p>
+    <div id="worldWrap">
+      <canvas id="worldCanvas" width="1400" height="1050"></canvas>
+      <div id="worldHud">
+        <div class="wcell">🎒 Сено: <span id="carryHay">0</span> / <span id="carryMax">15</span></div>
+        <div class="wcell">👷 Рабочие: <span id="workerHud">0</span></div>
+        <div class="wcell equip" id="equipHud">🖐 Без инструмента</div>
+        <div class="wcell autooff" id="autoHud">🔒 Пассив: закрыт</div>
+      </div>
+      <div id="searchBarWrap"><div id="searchBar"><div id="searchFill"></div></div></div>
+      <div id="worldMsg"></div>
+      <div class="mobileControls">
+        <div class="dpad">
+          <div></div><button data-dir="up">▲</button><div></div>
+          <button data-dir="left">◀</button><div></div><button data-dir="right">▶</button>
+          <div></div><button data-dir="down">▼</button><div></div>
+        </div>
+        <button class="actionBtn" id="actionBtn">СОБРАТЬ</button>
+      </div>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <div class="panel glass" id="panel-shop">
+    <h2>Магазин</h2>
+    <p class="desc">Инструменты дают бонусы к сбору. Оборудование даёт пассив (требует технологий).</p>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; border:1px solid var(--border);">
+      <div style="flex:1;">
+        <div style="font-weight:800; color:var(--accent); font-size:15px;">👷 Наёмный рабочий</div>
+        <div style="font-size:12px; color:var(--muted); margin-top:2px;">Собирает сено сам. Зарплата: <span id="workerSalary">30</span> 💰 / мин.</div>
+      </div>
+      <button class="btn" id="hireWorkerBtn" style="margin:0;">Нанять</button>
+    </div>
+    <div class="grid" id="shopGrid"></div>
+  </div>
+
+  <div class="panel glass" id="panel-tech">
+    <h2>Технологии</h2>
+    <p class="desc">Автоматизация открывается постепенно. Без этих технологий пассивный доход = 0.</p>
+    <div class="grid" id="techGrid"></div>
+  </div>
+
+  <div class="panel glass" id="panel-craft">
+    <h2>Переработка</h2>
+    <p class="desc">Переработка выгоднее, чем прямая сдача. Открывается технологиями.</p>
+    <div id="craftList"></div>
+  </div>
+
+  <div class="panel glass" id="panel-achievements">
+    <h2>Достижения</h2>
+    <p class="desc">Выполняй условия и получай награды. Прогресс: <span id="achProgress">0 / 8</span></p>
+    <div id="achievementsList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+  </div>
+
+  <div class="panel glass" id="panel-collection">
+    <h2>Коллекция</h2>
+    <p class="desc">Найдено <span id="colCount">0</span> из 24. Нажми на иголку, чтобы узнать её название.</p>
+    <div class="needleCollection" id="needleGrid"></div>
+  </div>
+
+  <div class="panel glass" id="panel-locations">
+    <h2>Локации</h2>
+    <p class="desc">Переезжай между локациями ради разных бонусов. Стоимость переезда — 1000 💰.</p>
+    <div class="grid" id="locationsGrid"></div>
+  </div>
+
+  <div class="panel glass" id="panel-customize">
+    <h2>Внешний вид</h2>
+    <p class="desc">Смени шляпу за деньги.</p>
+    <div class="grid" id="hatsGrid"></div>
+  </div>
+
+  <div class="panel glass" id="panel-stats">
+    <h2>Статистика</h2>
+    <div id="statsBox" style="font-size:14px; line-height:2.2; color:var(--muted);"></div>
+    <div style="margin-top:20px;">
+      <button class="btn danger" id="resetBtn">🗑 Сбросить прогресс</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">Заголовок</h2>
+    <p id="modalText">Текст</p>
+    <button class="btn" id="modalClose">Понятно</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<button id="pttBtn">🎤</button>
+
+<script type="module">
+/* =========================================================================
+   NEEDLE IN THE HAYSTACK v22 — MULTIPLAYER + VOICE + KPACUBIE ABTOPbI
+   ========================================================================= */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, get, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATgZntjPDujs5TfUt7x8S204AI4E0esU4",
+  authDomain: "needle-haystack-278b7.firebaseapp.com",
+  databaseURL: "https://needle-haystack-278b7-default-rtdb.firebaseio.com",
+  projectId: "needle-haystack-278b7",
+  storageBucket: "needle-haystack-278b7.firebasestorage.app",
+  messagingSenderId: "328546369974",
+  appId: "1:328546369974:web:c0be29bee9149dedee8117"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+const IS_MOBILE = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+let MP = { ready: false, roomId: null, myId: null, isHost: false };
+let otherPlayers = {};
+let voice = { localStream: null, peers: {}, enabled: false };
+
+const CONFIG = {
+  totalNeedles: 24, saveKey: 'nih_save_v22', themeKey: 'nih_theme',
+  worldW: 1400, worldH: 1050, playerRadius: 24, playerSpeed: 260,
+  carryBase: 15, haySellPrice: 2, hayPilesCount: 10, hayPerPile: 6,
+  pileReplenishTime: 12, actionRadius: 80,
+  baseRect: { x: 1050, y: 330, w: 300, h: 360 },
+  collectBase: 2, xpPerHay: 1, xpBase: 80, xpMult: 1.5,
+  manualNeedleChance: 0.0015, autoNeedleMult: 2.5,
+  workerSalary: 30, workerBaseCost: 1000, locationCost: 1000,
+};
+
+const LOCATIONS = {
+  warehouse: { name: 'Склад', icon: '🏚️', desc: 'Базовые показатели', bonus: 'Нет бонусов', color: '#3a7a4a', bgColor: '#2a2010', floor: '#3a2e14', particle: '#f5d878' },
+  barn:      { name: 'Амбар', icon: '🏠', desc: 'Больше денег за сено', bonus: '+20% к продаже сена', color: '#7a5a2a', bgColor: '#1e1408', floor: '#2e1e08', particle: '#d4a843' },
+  field:     { name: 'Поле',  icon: '🌾', desc: 'Быстрее ручной сбор', bonus: '+20% к скорости сбора', color: '#4a7a2a', bgColor: '#1a2e14', floor: '#2a4a24', particle: '#8aca6a' },
+  attic:     { name: 'Чердак',icon: '🕸️', desc: 'Легче найти иголки', bonus: '+20% к шансу иголок', color: '#5a4a6a', bgColor: '#1a141e', floor: '#2a2030', particle: '#a894ca' }
+};
+const HATS = { none: { name: 'Без шляпы', icon: '👒', cost: 0 }, cap: { name: 'Кепка', icon: '🧢', cost: 500 }, top: { name: 'Цилиндр', icon: '🎩', cost: 2000 }, crown: { name: 'Корона', icon: '👑', cost: 10000 } };
+const NEEDLE_NAMES = ["Ржавая", "Золотая швейная", "Серебряная", "Костяная", "Иголка-магнит", "Гигантская", "Невидимая", "Плазменная", "Иголка времени", "Ледяная", "Огненная", "Титановая", "Иголка-компас", "Жемчужная", "Медная", "Алмазная", "Иголка удачи", "Космическая", "Древняя", "Иголка-ключ", "Звездная", "Радужная", "Призрачная", "Легендарная"];
+
+const TOOLS = {
+  shovel: { name: 'Лопата', icon: '🥄', bonusCarry: 0.3, bonusSpeed: 0.2, bonusWalk: 0, bonusRadius: 0, bonusText: '+30% вместимости · +20% сбора' },
+  bucket: { name: 'Ведро',  icon: '🪣', bonusCarry: 0.2, bonusSpeed: 0,   bonusWalk: 0, bonusRadius: 0, bonusText: '+20% вместимости' },
+  wheelbarrow:{ name: 'Тачка',  icon: '🛒', bonusCarry: 0.8, bonusSpeed: 0,   bonusWalk: 0.15, bonusRadius: 0, bonusText: '+80% вместимости · +15% ходьбы' },
+  pitchfork: { name: 'Вилы',   icon: '🔱', bonusCarry: 0,   bonusSpeed: 0.4, bonusWalk: 0, bonusRadius: 0, bonusText: '+40% скорости сбора' },
+  vacuum: { name: 'Пылесос',icon: '🌀', bonusCarry: 0,   bonusSpeed: 0.8, bonusWalk: 0, bonusRadius: 40, bonusText: '+80% сбора · +40 радиус' },
+};
+
+const SHOP_ITEMS = [
+  { id: 'shovel', name: 'Лопата', icon: '🥄', desc: '+3 сена/сек', cost: 30, mult: 1.18, max: 25, effect: { straws: 3 } },
+  { id: 'bucket', name: 'Ведро', icon: '🪣', desc: '+8 сена/сек', cost: 120, mult: 1.20, max: 25, effect: { straws: 8 } },
+  { id: 'wheelbarrow', name: 'Тачка', icon: '🛒', desc: '+25 сена/сек', cost: 500, mult: 1.22, max: 25, effect: { straws: 25 } },
+  { id: 'pitchfork',name: 'Вилы', icon: '🔱', desc: '+60 сена/сек', cost: 2000, mult: 1.24, max: 25, effect: { straws: 60 } },
+  { id: 'vacuum', name: 'Пылесос', icon: '🌀', desc: '+150 сена/сек', cost: 8000, mult: 1.26, max: 25, effect: { straws: 150 } },
+  { id: 'metalldet',name: 'Металлоискатель', icon: '📡', desc: '+1% шанс найти иголку', cost: 20000, mult: 1.28, max: 20, effect: { chance: 0.01 } },
+  { id: 'conveyor', name: 'Конвейер', icon: '➡️', desc: '+500 сена/сек', cost: 50000, mult: 1.28, max: 25, effect: { straws: 500 } },
+  { id: 'baler', name: 'Пресс-подборщик', icon: '📦', desc: '+1500 сена/сек', cost: 150000, mult: 1.30, max: 25, effect: { straws: 1500 } },
+  { id: 'scanner', name: 'Сканер', icon: '🔬', desc: '+3% шанс найти иголку', cost: 400000, mult: 1.32, max: 20, effect: { chance: 0.03 } },
+  { id: 'robot', name: 'Робо-манипулятор', icon: '🤖', desc: '+5000 сена/сек', cost: 1000000,mult: 1.32, max: 25, effect: { straws: 5000 } },
+  { id: 'drone', name: 'Дрон-разведчик', icon: '🛸', desc: '+5% шанс найти иголку', cost: 3000000,mult: 1.35, max: 20, effect: { chance: 0.05 } },
+  { id: 'sorter', name: 'Система сортировки',icon: '⚙️', desc: '+25000 сена/сек', cost: 10000000,mult: 1.35, max: 25, effect: { straws: 25000 } },
+];
+
+const TECH_ITEMS = [
+  { id: 'auto1', name: 'Автоматизация I', icon: '🔧', desc: 'Открывает 25% пассивного дохода', cost: 5, category: 'auto', effect: { auto: 0.25 } },
+  { id: 'auto2', name: 'Автоматизация II', icon: '⚙️', desc: 'Увеличивает пассив до 50%', cost: 10, category: 'auto', effect: { auto: 0.5 }, requires: 'auto1' },
+  { id: 'auto3', name: 'Автоматизация III',icon: '🏭', desc: 'Полный пассивный доход (100%)', cost: 16, category: 'auto', effect: { auto: 1.0 }, requires: 'auto2' },
+  { id: 't1', name: 'Быстрые руки', icon: '✋', desc: '+30% к ручному сбору', cost: 3, effect: { manualMult: 0.3 } },
+  { id: 't2', name: 'Опытный глаз', icon: '👁', desc: '+20% к шансу найти иголку', cost: 6, effect: { chanceMult: 0.2 } },
+  { id: 't3', name: 'Организация труда', icon: '📋', desc: '+15% к доходу сена', cost: 8, effect: { strawsMult: 0.15 } },
+  { id: 't4', name: 'Переработка I', icon: '⚙️', desc: 'Открывает сенную массу', cost: 9, effect: { unlockCraft: 'mass' } },
+  { id: 't5', name: 'Электрификация', icon: '⚡', desc: '+25% к доходу сена', cost: 12, effect: { strawsMult: 0.25 } },
+  { id: 't6', name: 'Мастер-поисковик', icon: '🏆', desc: '+40% к шансу найти иголку', cost: 14, effect: { chanceMult: 0.4 } },
+  { id: 't7', name: 'Переработка II', icon: '🏭', desc: 'Открывает тюки и кирпичи', cost: 16, effect: { unlockCraft: 'bales' } },
+  { id: 't8', name: 'Логистика', icon: '🚚', desc: '+35% к доходу сена', cost: 18, effect: { strawsMult: 0.35 } },
+  { id: 't9', name: 'Переработка III', icon: '📄', desc: 'Открывает бумагу и пеллеты', cost: 20, effect: { unlockCraft: 'paper' } },
+  { id: 't10', name: 'Промышленная революция', icon: '🏭', desc: '+80% доход, +20% шанс', cost: 22, effect: { strawsMult: 0.8, chanceMult: 0.2 } },
+];
+
+const CRAFT_RECIPES = [
+  { id: 'mass', name: 'Сенная масса', desc: '100 сена → 300 денег', hay: 100, money: 300, unlock: 'mass' },
+  { id: 'bales', name: 'Прессованные тюки', desc: '500 сена → 1800 денег', hay: 500, money: 1800, unlock: 'bales' },
+  { id: 'brick', name: 'Экокирпичи', desc: '2000 сена → 9000 денег', hay: 2000, money: 9000, unlock: 'bales' },
+  { id: 'paper', name: 'Бумага', desc: '10000 сена → 60000 денег', hay: 10000,money: 60000, unlock: 'paper' },
+  { id: 'pellets',name: 'Пеллеты', desc: '50000 сена → 400000 денег',hay: 50000,money: 400000,unlock: 'paper' },
+];
+
+const ACHIEVEMENTS = [
+  { id: 'hay1', name: 'Первая тысяча', desc: 'Собрать 1000 сена', target: () => S.strawsTotal, max: 1000, rewardMoney: 500, icon: '🌾' },
+  { id: 'hay2', name: 'Сенной магнат', desc: 'Собрать 100 000 сена', target: () => S.strawsTotal, max: 100000, rewardMoney: 20000, icon: '👑' },
+  { id: 'needle5', name: 'Коллекционер', desc: 'Найти 5 иголок', target: () => S.needles, max: 5, rewardMoney: 0, rewardNeedle: 1, icon: '🧵' },
+  { id: 'needle15',name: 'Мастер-поисковик', desc: 'Найти 15 иголок', target: () => S.needles, max: 15, rewardMoney: 50000, icon: '🏆' },
+  { id: 'robot10', name: 'Роботизация', desc: 'Купить 10 роботов', target: () => (S.shop['robot'] || 0), max: 10, rewardMoney: 100000, icon: '🤖' },
+  { id: 'worker5', name: 'Бригадир', desc: 'Нанять 5 рабочих', target: () => S.workers, max: 5, rewardMoney: 5000, icon: '👷' },
+  { id: 'money1m', name: 'Миллионер', desc: 'Заработать 1 000 000 денег', target: () => S.totalMoneyEarned, max: 1000000, rewardMoney: 0, rewardNeedle: 2, icon: '💰' },
+  { id: 'events', name: 'Ловкач', desc: 'Поймать 3 случайных события', target: () => S.eventsCaught, max: 3, rewardMoney: 3000, icon: '⚡' },
+];
+
+const defaultState = () => ({
+  hay: 0, money: 0, needles: 0, strawsTotal: 0, manualSearches: 0, searchProgress: 0,
+  shop: {}, tech: {}, equippedTool: null, workers: 0,
+  lastTick: Date.now(), playTime: 0, totalMoneyEarned: 0,
+  playerLv: 1, playerXP: 0, playerSpeedBonus: 0, carryMax: CONFIG.carryBase,
+  world: { hayPiles: [], carried: 0 }, totalDeposited: 0,
+  currentLocation: 'warehouse', unlockedLocations: ['warehouse'],
+  collectedNeedles: [], achievements: {}, eventsCaught: 0,
+  currentHat: 'none', unlockedHats: ['none'], lastSalaryTick: Date.now(),
+});
+
+const storage = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }, remove(k) { try { localStorage.removeItem(k); return true; } catch (e) { return false; } } };
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const fmt = (n) => { if (n < 1000) return Math.floor(n).toString(); if (n < 1e6) return (n / 1e3).toFixed(1) + 'K'; if (n < 1e9) return (n / 1e6).toFixed(2) + 'M'; return (n / 1e9).toFixed(2) + 'B'; };
+const fmtInt = (n) => Math.floor(n).toLocaleString('ru-RU');
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+function safe(fn, name) { try { return fn(); } catch (e) { console.error('[SAFE]', name, e); } }
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function popText(id) { const el = document.getElementById(id); if (!el) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); setTimeout(() => el.classList.remove('pop'), 200); }
+function triggerFlash() { const f = document.getElementById('flash'); f.classList.add('active'); setTimeout(() => f.classList.remove('active'), 100); }
+
+let S = defaultState();
+S.world.hayPiles = makeHayPiles();
+
+function getAutoMultiplier() { if (S.tech['auto3']) return 1.0; if (S.tech['auto2']) return 0.5; if (S.tech['auto1']) return 0.25; return 0; }
+function getActiveTool() { const id = S.equippedTool; if (!id || !TOOLS[id]) return null; const lvl = S.shop[id] || 0; if (lvl <= 0) return null; return { id, ...TOOLS[id], level: lvl }; }
+function getEquipmentBonus() { const tool = getActiveTool(); if (!tool) return { carry: 0, speed: 0, walk: 0, radius: 0 }; const lvl = tool.level; return { carry: (tool.bonusCarry || 0) * lvl, speed: (tool.bonusSpeed || 0) * lvl, walk: (tool.bonusWalk || 0) * lvl, radius: (tool.bonusRadius || 0) * lvl }; }
+function getEffectiveCarryMax() { return Math.floor(S.carryMax * (1 + getEquipmentBonus().carry)); }
+function getCollectAmount() { return Math.max(CONFIG.collectBase, Math.floor(CONFIG.collectBase * (1 + getEquipmentBonus().speed))); }
+function getWalkSpeed() { return CONFIG.playerSpeed * (1 + S.playerSpeedBonus + getEquipmentBonus().walk); }
+function getActionRadius() { return CONFIG.actionRadius + getEquipmentBonus().radius; }
+
+function makeHayPiles() {
+  const piles = []; const W = CONFIG.worldW, H = CONFIG.worldH; const base = CONFIG.baseRect; let tries = 0;
+  while (piles.length < CONFIG.hayPilesCount && tries < 500) {
+    tries++; const x = 100 + Math.random() * (W - 200); const y = 100 + Math.random() * (H - 200);
+    if (x + 60 > base.x && x - 60 < base.x + base.w && y + 60 > base.y && y - 60 < base.y + base.h) continue;
+    if (Math.hypot(x - 250, y - 525) < 200) continue;
+    let ok = true; for (const p of piles) if (Math.hypot(p.x - x, p.y - y) < 150) { ok = false; break; }
+    if (!ok) continue;
+    piles.push({ x, y, amount: CONFIG.hayPerPile, max: CONFIG.hayPerPile, visualAmount: CONFIG.hayPerPile, lastRefresh: Date.now(), wobble: Math.random() * Math.PI * 2, squash: 0 });
+  }
+  return piles;
+}
+
+async function initMultiplayer() {
+  try {
+    await signInAnonymously(auth);
+    await new Promise((resolve) => {
+      if (auth.currentUser) resolve();
+      else onAuthStateChanged(auth, (u) => { if (u) resolve(); });
+    });
+
+    const params = new URLSearchParams(location.search);
+    let roomId = params.get('room');
+    const myId = 'p_' + Math.random().toString(36).slice(2, 10);
+    const name = prompt('Твоё имя (для мультиплеера)?') || 'Игрок';
+
+    if (roomId) {
+      roomId = roomId.toUpperCase();
+      const snap = await get(ref(db, 'rooms/' + roomId));
+      if (!snap.exists()) { alert('Комната не найдена: ' + roomId); return; }
+      
+      await update(ref(db, `rooms/${roomId}/players/${myId}`), { name, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false });
+      MP = { ready: true, roomId, myId, isHost: false };
+    } else {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      let newId = '';
+      for (let i = 0; i < 6; i++) newId += chars[Math.floor(Math.random() * chars.length)];
+      roomId = newId;
+      
+      const initialPiles = makeHayPiles();
+      await set(ref(db, 'rooms/' + roomId), {
+        meta: { createdAt: Date.now(), version: 22 },
+        state: { hay: 0, money: 0, needles: 0, strawsTotal: 0, totalDeposited: 0, totalMoneyEarned: 0, shop: {}, tech: {}, workers: 0, currentLocation: 'warehouse', hayPiles: initialPiles.map(p => ({ x: p.x, y: p.y, amount: p.amount, max: p.max, lastRefresh: Date.now() })) },
+        players: { [myId]: { name, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false } }
+      });
+      
+      history.replaceState(null, '', '?room=' + roomId);
+      MP = { ready: true, roomId, myId, isHost: true };
+      
+      setTimeout(() => {
+        const link = location.origin + location.pathname + '?room=' + roomId;
+        alert('Комната создана!\n\nКидай друзьям ссылку:\n' + link);
+      }, 500);
+    }
+
+    onValue(ref(db, `rooms/${roomId}/state`), (snap) => {
+      const st = snap.val();
+      if (!st) return;
+      S.hay = st.hay || 0; S.money = st.money || 0; S.needles = st.needles || 0;
+      S.strawsTotal = st.strawsTotal || 0; S.totalDeposited = st.totalDeposited || 0; S.totalMoneyEarned = st.totalMoneyEarned || 0;
+      S.shop = st.shop || {}; S.tech = st.tech || {}; S.workers = st.workers || 0;
+      S.currentLocation = st.currentLocation || 'warehouse';
+      
+      if (st.hayPiles && Array.isArray(st.hayPiles)) {
+        st.hayPiles.forEach((sp, i) => {
+          if (!S.world.hayPiles[i]) S.world.hayPiles[i] = { visualAmount: 0, wobble: 0, squash: 0 };
+          S.world.hayPiles[i].x = sp.x; S.world.hayPiles[i].y = sp.y; S.world.hayPiles[i].max = sp.max;
+          S.world.hayPiles[i].amount = sp.amount; S.world.hayPiles[i].lastRefresh = sp.lastRefresh;
+        });
+      }
+      safe(updateHUD); safe(renderShop); safe(renderTech); safe(renderCraft);
+    });
+
+    onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+      const all = snap.val() || {};
+      otherPlayers = {};
+      for (const [id, p] of Object.entries(all)) {
+        if (id === myId) continue;
+        if (p.lastSeen && Date.now() - p.lastSeen > 30000) continue;
+        otherPlayers[id] = p;
+      }
+    });
+
+    console.log('✅ Мультиплеер активен. Комната:', roomId);
+    log('Мультиплеер активен. Комната: ' + roomId, 'ok');
+    
+    startVoice();
+    
+  } catch (e) {
+    console.error('Ошибка мультиплеера:', e);
+    alert('Ошибка Firebase: ' + e.message);
+  }
+}
+
+async function startVoice() {
+  if (!MP.ready) return;
+  try {
+    voice.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    voice.localStream.getAudioTracks().forEach(t => t.enabled = false);
+    voice.enabled = true;
+    log('🎤 Микрофон готов! Жми G или кнопку 🎤, чтобы говорить.', 'ok');
+    
+    if (IS_MOBILE) {
+      const btn = document.getElementById('pttBtn');
+      if (btn) btn.style.display = 'flex';
+    }
+  } catch (e) {
+    console.warn('Нет доступа к микрофону', e);
+    log('⚠ Нет доступа к микрофону. Разреши его в браузере.', 'bad');
+    return;
+  }
+
+  onValue(ref(db, `rooms/${MP.roomId}/players`), (snap) => {
+    const all = snap.val() || {};
+    Object.keys(all).forEach(peerId => {
+      if (peerId !== MP.myId && !voice.peers[peerId]) {
+        createPeer(peerId, MP.myId < peerId);
+      }
+    });
+  });
+
+  onValue(ref(db, `rooms/${MP.roomId}/voice`), async (snap) => {
+    const all = snap.val() || {};
+    for (const [peerId, data] of Object.entries(all)) {
+      if (peerId === MP.myId) continue;
+
+      if (data.offer && data.offer.to === MP.myId && !voice.peers[peerId]) {
+        const pc = await createPeer(peerId, false);
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await set(ref(db, `rooms/${MP.roomId}/voice/${MP.myId}/answer`), { sdp: answer.sdp, type: answer.type, to: peerId });
+      }
+
+      if (data.answer && data.answer.to === MP.myId && voice.peers[peerId]) {
+        const pc = voice.peers[peerId];
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+      }
+
+      if (data.ice) {
+        for (const c of Object.values(data.ice)) {
+          if (c.to === MP.myId && voice.peers[peerId]) {
+            try { await voice.peers[peerId].addIceCandidate(new RTCIceCandidate(c)); } catch(e){}
+          }
+        }
+      }
+    }
+  });
+}
+
+async function createPeer(peerId, isInitiator) {
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  voice.peers[peerId] = pc;
+
+  voice.localStream.getTracks().forEach(track => pc.addTrack(track, voice.localStream));
+
+  pc.ontrack = (event) => {
+    const audio = new Audio();
+    audio.srcObject = event.streams[0];
+    audio.autoplay = true;
+    audio.playsInline = true;
+    document.body.appendChild(audio);
+  };
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      update(ref(db, `rooms/${MP.roomId}/voice/${MP.myId}/ice`), {
+        ['c_' + Date.now() + Math.random().toString(36).slice(2,5)]: { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex, to: peerId }
+      });
+    }
+  };
+
+  if (isInitiator) {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await set(ref(db, `rooms/${MP.roomId}/voice/${MP.myId}/offer`), { sdp: offer.sdp, type: offer.type, to: peerId });
+  }
+  return pc;
+}
+
+function setTalking(on) {
+  if (!voice.enabled) return;
+  voice.localStream.getAudioTracks().forEach(t => t.enabled = on);
+  const btn = document.getElementById('pttBtn');
+  if (btn) btn.style.background = on ? 'var(--success)' : 'var(--accent)';
+  if (on) showWorldMsg('🎤 Говоришь...');
+  
+  if (MP.ready) {
+    update(ref(db, `rooms/${MP.roomId}/players/${MP.myId}`), { talking: on }).catch(()=>{});
+  }
+}
+
+window.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'g' && !e.repeat) setTalking(true); });
+window.addEventListener('keyup', e => { if (e.key.toLowerCase() === 'g') setTalking(false); });
+
+const ptt = document.getElementById('pttBtn');
+if (ptt) {
+  ptt.addEventListener('pointerdown', e => { e.preventDefault(); setTalking(true); });
+  ptt.addEventListener('pointerup', e => { e.preventDefault(); setTalking(false); });
+  ptt.addEventListener('pointerleave', () => setTalking(false));
+}
+
+const AC = window.AudioContext || window.webkitAudioContext; let audioCtx = null;
+function ensureAudio() { try { if (!AC) return; if (!audioCtx) audioCtx = new AC(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {} }
+function playTone(freq, dur = 0.08, type = 'sine', vol = 0.08) { if (!audioCtx) return; try { const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(vol, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur); o.connect(g).connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur); } catch (e) {} }
+function playNoise(dur = 0.1, vol = 0.1) { if (!audioCtx) return; try { const bufferSize = audioCtx.sampleRate * dur; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate); const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1; const source = audioCtx.createBufferSource(); source.buffer = buffer; const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1500; const gain = audioCtx.createGain(); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur); source.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); source.start(); } catch(e){} }
+
+const SFX = { 
+  pick: () => { playNoise(0.08, 0.15); playTone(600, 0.05, 'triangle', 0.05); }, 
+  deposit: () => { playTone(1200, 0.05, 'sine', 0.15); setTimeout(()=>playTone(1600, 0.1, 'sine', 0.15), 50); }, 
+  buy: () => { playTone(660, 0.08, 'sine', 0.12); setTimeout(() => playTone(990, 0.1, 'sine', 0.12), 60); }, 
+  error: () => playTone(180, 0.15, 'sawtooth', 0.1), 
+  needle: () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.16), i * 100)); } 
+};
+
+function computeProduction() {
+  let straws = 0, chanceBonus = 0;
+  SHOP_ITEMS.forEach(item => { const lvl = S.shop[item.id] || 0; if (lvl <= 0) return; if (item.effect.straws) straws += item.effect.straws * lvl; if (item.effect.chance) chanceBonus += item.effect.chance * lvl; });
+  const autoMult = getAutoMultiplier();
+  straws *= autoMult;
+  let strawsMult = 1, chanceMult = 1;
+  TECH_ITEMS.forEach(t => { if (!S.tech[t.id]) return; if (t.effect.strawsMult) strawsMult += t.effect.strawsMult; if (t.effect.chanceMult) chanceMult += t.effect.chanceMult; });
+  if (S.currentLocation === 'barn') strawsMult += 0.2;
+  if (S.currentLocation === 'attic') chanceMult += 0.2;
+  straws *= strawsMult;
+  return { straws, chanceBonus: chanceBonus * chanceMult, autoMult };
+}
+
+function passiveIncome(dt) {
+  const prod = computeProduction();
+  const gained = prod.straws * dt;
+  if (gained > 0) { S.hay += gained; S.strawsTotal += gained; }
+  const autoChance = prod.chanceBonus * dt * prod.autoMult * CONFIG.autoNeedleMult;
+  if (autoChance > 0) { S.searchProgress += autoChance; if (S.searchProgress >= 1) { S.searchProgress -= 1; findNeedle(true); } }
+}
+
+async function findNeedle(auto = false) {
+  if (S.needles >= CONFIG.totalNeedles) return;
+  
+  if (MP.ready) {
+    const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+    let reward = 0, newCount = 0;
+    const result = await runTransaction(stateRef, (s) => {
+      if (!s || (s.needles || 0) >= CONFIG.totalNeedles) return;
+      const next = (s.needles || 0) + 1;
+      reward = Math.floor(30 * Math.pow(1.7, next));
+      s.needles = next;
+      s.money = (s.money || 0) + reward;
+      s.totalMoneyEarned = (s.totalMoneyEarned || 0) + reward;
+      s.searchProgress = 0;
+      newCount = next;
+      return s;
+    });
+    if (result.committed) {
+      S.searchProgress = 0; SFX.needle(); triggerFlash();
+      log(`🧵 Найдена иголка #${newCount}! +${fmt(reward)} 💰`, 'ok');
+      toast(`🧵 Иголка #${newCount}/${CONFIG.totalNeedles}! +${fmt(reward)} денег`);
+    }
+  } else {
+    S.needles++; S.collectedNeedles.push(S.needles - 1);
+    const reward = Math.floor(30 * Math.pow(1.7, S.needles));
+    S.money += reward; S.totalMoneyEarned += reward; S.searchProgress = 0;
+    SFX.needle(); triggerFlash();
+    toast(`🧵 Иголка #${S.needles}/${CONFIG.totalNeedles}! +${fmt(reward)} денег`);
+  }
+}
+
+let activeEvent = null; let eventTimer = 0;
+function triggerEvent() {
+  if (activeEvent) return;
+  const type = Math.random() > 0.5 ? 'gold' : 'rat';
+  const x = 150 + Math.random() * (CONFIG.worldW - 300); const y = 150 + Math.random() * (CONFIG.worldH - 300);
+  activeEvent = { type, x, y, life: 15, maxLife: 15 };
+  showWorldMsg(type === 'gold' ? '✨ Появилась Золотая куча! Успей кликнуть!' : '🐀 Пробежала Крыса! Кликни по ней!');
+}
+function catchEvent() {
+  if (!activeEvent) return;
+  if (activeEvent.type === 'gold') { const reward = 500 + Math.floor(Math.random() * 1000); S.money += reward; toast(`💰 Золотая куча: +${reward} денег!`); }
+  else { const reward = 200 + Math.floor(Math.random() * 300); S.money += reward; toast(`🐀 Крыса поймана: +${reward} денег!`); }
+  S.eventsCaught++; activeEvent = null; SFX.buy(); triggerFlash(); updateHUD();
+}
+function updateEvents(dt) {
+  eventTimer += dt;
+  if (!activeEvent && eventTimer > 45 + Math.random() * 30) { eventTimer = 0; triggerEvent(); }
+  if (activeEvent) { activeEvent.life -= dt; if (activeEvent.life <= 0) { activeEvent = null; } }
+}
+
+const npcs = [];
+function updateNPCs(dt) {
+  if (MP.ready) return;
+  
+  const now = Date.now();
+  if (now - S.lastSalaryTick > 60000) {
+    S.lastSalaryTick = now;
+    if (S.workers > 0) {
+      const totalSalary = S.workers * CONFIG.workerSalary;
+      if (S.money >= totalSalary) { S.money -= totalSalary; } else { S.workers = 0; npcs.length = 0; }
+    }
+  }
+  while (npcs.length < S.workers) npcs.push({ x: 400 + Math.random() * 200, y: 400 + Math.random() * 200, dir: 0, anim: 0, target: null, carry: 0, state: 'idle', timer: 0 });
+  while (npcs.length > S.workers) npcs.pop();
+
+  for (const npc of npcs) {
+    npc.timer -= dt;
+    if (npc.state === 'idle') {
+      let closest = null, cd = Infinity;
+      for (const pile of S.world.hayPiles) { if (pile.amount <= 0) continue; const d = Math.hypot(npc.x - pile.x, npc.y - pile.y); if (d < cd) { cd = d; closest = pile; } }
+      if (closest) { npc.target = closest; npc.state = 'move_to_pile'; } else npc.state = 'idle';
+    } else if (npc.state === 'move_to_pile') {
+      if (!npc.target || npc.target.amount <= 0) { npc.state = 'idle'; npc.target = null; continue; }
+      const dx = npc.target.x - npc.x, dy = npc.target.y - npc.y; const d = Math.hypot(dx, dy);
+      if (d < 40) { npc.state = 'collect'; npc.timer = 1.5; }
+      else { npc.x += (dx / d) * 120 * dt; npc.y += (dy / d) * 120 * dt; npc.dir = Math.atan2(dy, dx); npc.anim += dt * 10; }
+    } else if (npc.state === 'collect') {
+      if (npc.timer <= 0) { const take = Math.min(3, npc.target.amount); npc.target.amount -= take; npc.target.lastRefresh = Date.now(); npc.carry += take; npc.state = 'move_to_base'; }
+    } else if (npc.state === 'move_to_base') {
+      const b = CONFIG.baseRect; const tx = b.x + b.w/2, ty = b.y + b.h/2;
+      const dx = tx - npc.x, dy = ty - npc.y; const d = Math.hypot(dx, dy);
+      if (d < 70) {
+        const pricePer = CONFIG.haySellPrice * (1 + (S.playerLv - 1) * 0.03) * 0.5;
+        const money = Math.floor(npc.carry * pricePer);
+        S.money += money; S.hay += npc.carry; S.totalDeposited += npc.carry;
+        npc.carry = 0; npc.state = 'idle';
+      } else { npc.x += (dx / d) * 120 * dt; npc.y += (dy / d) * 120 * dt; npc.dir = Math.atan2(dy, dx); npc.anim += dt * 10; }
+    }
+  }
+}
+
+function renderAchievements() {
+  const list = document.getElementById('achievementsList'); if (!list) return;
+  list.innerHTML = ''; let doneCount = 0;
+  ACHIEVEMENTS.forEach(a => {
+    const done = !!S.achievements[a.id];
+    if (done) doneCount++;
+    const cur = Math.min(a.target(), a.max);
+    const pct = Math.min(100, (cur / a.max) * 100);
+    let rewardText = a.rewardMoney ? `+${fmt(a.rewardMoney)} 💰` : (a.rewardNeedle ? `+${a.rewardNeedle} 🧵` : '');
+    
+    const card = document.createElement('div');
+    card.className = 'achCard' + (done ? ' done' : '');
+    card.innerHTML = `
+      <div class="achIcon">${a.icon || '🏆'}</div>
+      <div class="achBody">
+        <div class="achTitle">${a.name}</div>
+        <div class="achDesc">${a.desc}</div>
+        <div class="achReward">Награда: ${rewardText}</div>
+        ${!done ? `<div class="progressBar"><div class="progressFill" style="width:${pct}%"></div></div><div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right;">${fmtInt(cur)} / ${fmtInt(a.max)}</div>` : ''}
+        <div class="achStatus ${done ? 'done' : 'progress'}">${done ? '✅ Получено' : '⏳ В процессе'}</div>
+      </div>`;
+    list.appendChild(card);
+  });
+  setText('achProgress', `${doneCount} / ${ACHIEVEMENTS.length}`);
+}
+
+const world = { 
+  canvas: null, ctx: null, 
+  player: { x: 250, y: 525, dir: 0, animPhase: 0, walkPhase: 0, speed: 0, collectAnim: 0, tilt: 0 }, 
+  keys: { up: false, down: false, left: false, right: false }, 
+  dpad: { up: false, down: false, left: false, right: false }, 
+  time: 0, floatTexts: [], particles: [], lastFrame: 0 
+};
+let moveTo = { x: 0, y: 0, active: false };
+let autoTarget = null;
+
+function initWorld() {
+  world.canvas = document.getElementById('worldCanvas'); if (!world.canvas) return;
+  world.ctx = world.canvas.getContext('2d', { alpha: false }); if (!world.ctx) return;
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (['arrowup','w','ц'].includes(k)) { world.keys.up = true; e.preventDefault(); }
+    else if (['arrowdown','s','ы'].includes(k)) { world.keys.down = true; e.preventDefault(); }
+    else if (['arrowleft','a','ф'].includes(k)) { world.keys.left = true; e.preventDefault(); }
+    else if (['arrowright','d','в'].includes(k)) { world.keys.right = true; e.preventDefault(); }
+    else if (k === ' ' || k === 'e' || k === 'у') { e.preventDefault(); performAction(); }
+  });
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (['arrowup','w','ц'].includes(k)) world.keys.up = false;
+    else if (['arrowdown','s','ы'].includes(k)) world.keys.down = false;
+    else if (['arrowleft','a','ф'].includes(k)) world.keys.left = false;
+    else if (['arrowright','d','в'].includes(k)) world.keys.right = false;
+  });
+
+  world.canvas.addEventListener('pointerdown', (e) => {
+    const r = world.canvas.getBoundingClientRect();
+    const wx = (e.clientX - r.left) * (CONFIG.worldW / r.width);
+    const wy = (e.clientY - r.top) * (CONFIG.worldH / r.height);
+    if (activeEvent) {
+      const d = Math.hypot(wx - activeEvent.x, wy - activeEvent.y);
+      if (d < 100) { catchEvent(); return; }
+    }
+    handleCanvasTap(wx, wy);
+  });
+
+  $$('.mobileControls .dpad button').forEach(btn => {
+    const dir = btn.dataset.dir;
+    const on = (e) => { e.preventDefault(); world.dpad[dir] = true; autoTarget = null; };
+    const off = (e) => { e.preventDefault(); world.dpad[dir] = false; };
+    btn.addEventListener('pointerdown', on); btn.addEventListener('pointerup', off); btn.addEventListener('pointerleave', off); btn.addEventListener('pointercancel', off);
+  });
+  const ab = document.getElementById('actionBtn'); if (ab) ab.addEventListener('pointerdown', (e) => { e.preventDefault(); performAction(); });
+
+  world.lastFrame = performance.now(); requestAnimationFrame(worldLoop);
+}
+
+function handleCanvasTap(wx, wy) {
+  const b = CONFIG.baseRect; const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  if (wx > b.x && wx < b.x + b.w && wy > b.y && wy < b.y + b.h) {
+    if (S.world.carried > 0) { autoTarget = { type: 'deposit', x: cx, y: cy }; showWorldMsg('Иду к базе...'); }
+    else showWorldMsg('Нечего сдавать'); return;
+  }
+  let closest = null, closestD = Infinity;
+  for (const pile of S.world.hayPiles) { if (pile.amount <= 0) continue; const d = Math.hypot(wx - pile.x, wy - pile.y); if (d < closestD) { closestD = d; closest = pile; } }
+  if (closest && closestD < 100) {
+    if (S.world.carried >= getEffectiveCarryMax()) { showWorldMsg('Руки полны! Идите к базе.'); return; }
+    autoTarget = { type: 'collect', pile: closest, x: closest.x, y: closest.y }; showWorldMsg('Иду к сену...'); return;
+  }
+  autoTarget = null; moveTo = { x: wx, y: wy, active: true };
+}
+
+function worldLoop(now) {
+  const dt = Math.min(0.05, (now - world.lastFrame) / 1000);
+  world.lastFrame = now; world.time += dt;
+  updatePlayer(dt); updateHayPiles(dt); updateWorldParticles(dt); updateEvents(dt); updateNPCs(dt);
+  
+  if (MP.ready && world.player) {
+    if (!MP._lastSend || performance.now() - MP._lastSend > 150) {
+      MP._lastSend = performance.now();
+      update(ref(db, `rooms/${MP.roomId}/players/${MP.myId}`), {
+        x: Math.round(world.player.x), y: Math.round(world.player.y),
+        dir: Math.round(world.player.dir * 100) / 100, carried: Math.round(S.world.carried), lastSeen: Date.now()
+      });
+    }
+  }
+
+  if (world.ctx) renderWorld();
+  requestAnimationFrame(worldLoop);
+}
+
+function updatePlayer(dt) {
+  const p = world.player; let dx = 0, dy = 0;
+  const useDpad = world.dpad.up || world.dpad.down || world.dpad.left || world.dpad.right;
+  
+  if (useDpad) {
+    if (world.dpad.up) dy -= 1; if (world.dpad.down) dy += 1; if (world.dpad.left) dx -= 1; if (world.dpad.right) dx += 1; moveTo.active = false;
+  } else if (autoTarget) {
+    const ddx = autoTarget.x - p.x, ddy = autoTarget.y - p.y; const d = Math.hypot(ddx, ddy); const stopDist = autoTarget.type === 'collect' ? 60 : 80;
+    if (d < stopDist) {
+      if (autoTarget.type === 'collect') { const pile = autoTarget.pile; if (pile && pile.amount > 0 && S.world.carried < getEffectiveCarryMax()) collectHay(pile); }
+      else if (autoTarget.type === 'deposit') { if (S.world.carried > 0) depositHay(); }
+      autoTarget = null;
+    } else { dx = ddx / d; dy = ddy / d; }
+  } else {
+    if (world.keys.up) dy -= 1; if (world.keys.down) dy += 1; if (world.keys.left) dx -= 1; if (world.keys.right) dx += 1;
+    if (dx === 0 && dy === 0 && moveTo.active) {
+      const ddx = moveTo.x - p.x, ddy = moveTo.y - p.y; const d = Math.hypot(ddx, ddy);
+      if (d < 10) moveTo.active = false; else { dx = ddx / d; dy = ddy / d; }
+    } else if (dx !== 0 || dy !== 0) moveTo.active = false;
+  }
+  
+  const len = Math.hypot(dx, dy);
+  if (len > 0) {
+    dx /= len; dy /= len; 
+    const targetSpeed = getWalkSpeed();
+    p.speed = lerp(p.speed, targetSpeed, 0.2); 
+    const sp = p.speed * dt;
+    p.x = clamp(p.x + dx * sp, CONFIG.playerRadius + 10, CONFIG.worldW - CONFIG.playerRadius - 10);
+    p.y = clamp(p.y + dy * sp, CONFIG.playerRadius + 10, CONFIG.worldH - CONFIG.playerRadius - 10);
+    p.dir = Math.atan2(dy, dx); 
+    p.walkPhase += dt * 15;
+    p.tilt = lerp(p.tilt, dx * 0.15, 0.1); 
+  } else {
+    p.speed = lerp(p.speed, 0, 0.2);
+    p.tilt = lerp(p.tilt, 0, 0.1);
+    p.walkPhase = lerp(p.walkPhase, Math.round(p.walkPhase / Math.PI) * Math.PI, 0.1);
+  }
+  p.animPhase += dt * (p.speed / 200);
+  p.collectAnim = Math.max(0, p.collectAnim - dt * 2.5); 
+}
+
+function updateHayPiles(dt) { 
+  const now = Date.now(); 
+  for (const pile of S.world.hayPiles) { 
+    pile.wobble += dt * 2; 
+    pile.visualAmount = lerp(pile.visualAmount, pile.amount, 0.1);
+    pile.squash = lerp(pile.squash, 0, 0.15); 
+    if (pile.amount < pile.max && now - pile.lastRefresh > CONFIG.pileReplenishTime * 1000) { 
+      if (MP.isHost) {
+        const pileRef = ref(db, `rooms/${MP.roomId}/state/hayPiles/${S.world.hayPiles.indexOf(pile)}`);
+        runTransaction(pileRef, p => { if(p && p.amount < p.max && Date.now() - p.lastRefresh > CONFIG.pileReplenishTime * 1000) { p.amount = p.max; p.lastRefresh = Date.now(); } return p; });
+      } else if (!MP.ready) {
+        pile.amount = pile.max; pile.lastRefresh = now; 
+      }
+    } 
+  } 
+}
+
+function updateWorldParticles(dt) {
+  while (world.particles.length > (IS_MOBILE ? 30 : 999)) world.particles.shift();
+  for (let i = world.particles.length - 1; i >= 0; i--) { 
+    const pt = world.particles[i]; pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += (pt.gravity||60) * dt; pt.life -= dt; pt.rot += pt.vr * dt;
+    if (pt.life <= 0) world.particles.splice(i, 1); 
+  }
+  for (let i = world.floatTexts.length - 1; i >= 0; i--) { 
+    const ft = world.floatTexts[i]; ft.y -= 40 * dt; ft.life -= dt; if (ft.life <= 0) world.floatTexts.splice(i, 1); 
+  }
+}
+
+function renderWorld() {
+  const ctx = world.ctx; const W = CONFIG.worldW, H = CONFIG.worldH;
+  const loc = LOCATIONS[S.currentLocation] || LOCATIONS.warehouse;
+  
+  const bg = ctx.createRadialGradient(W/2, H/2, 100, W/2, H/2, W);
+  bg.addColorStop(0, loc.floor); bg.addColorStop(1, loc.bgColor);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  ctx.save(); ctx.globalAlpha = 0.08;
+  if (S.currentLocation === 'field') {
+    for (let i = 0; i < 150; i++) { ctx.strokeStyle = '#8aca6a'; ctx.lineWidth = 2; const x = (i * 137.5) % W; const y = (i * 219.3) % H; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+10, y-20); ctx.stroke(); }
+  } else if (S.currentLocation === 'attic') {
+    for (let gx = 0; gx < W; gx += 120) { ctx.fillStyle = '#000'; ctx.fillRect(gx, 0, 6, H); ctx.fillStyle = '#fff'; ctx.fillRect(gx+6, 0, 2, H); }
+  } else {
+    for (let gx = 0; gx < W; gx += 100) for (let gy = 0; gy < H; gy += 100) { ctx.fillStyle = ((gx + gy) / 100) % 2 === 0 ? '#000' : '#fff'; ctx.fillRect(gx, gy, 100, 100); }
+  }
+  ctx.restore();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  if (S.currentLocation === 'warehouse' || S.currentLocation === 'barn') {
+    ctx.fillRect(0, 0, 40, H); ctx.fillRect(W-40, 0, 40, H);
+  } else if (S.currentLocation === 'field') {
+    ctx.fillStyle = '#2a4a24'; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, H-60); ctx.lineTo(W, H-80); ctx.lineTo(W, H); ctx.fill();
+  }
+
+  const vig = ctx.createRadialGradient(W/2, H/2, W*0.3, W/2, H/2, W*0.7);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = vig; ctx.fillRect(0,0,W,H);
+
+  const b = CONFIG.baseRect;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(b.x + b.w/2, b.y + b.h, b.w/2, 40, 0, 0, Math.PI*2); ctx.fill(); 
+  ctx.fillStyle = '#4a3a1c'; ctx.fillRect(b.x, b.y + 40, b.w, b.h - 40); 
+  ctx.fillStyle = '#5a4a2c'; ctx.beginPath(); ctx.moveTo(b.x - 20, b.y + 40); ctx.lineTo(b.x + b.w/2, b.y - 40); ctx.lineTo(b.x + b.w + 20, b.y + 40); ctx.fill();
+  ctx.fillStyle = '#8a6a2c'; ctx.fillRect(b.x + 20, b.y + 60, b.w - 40, 30); 
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('СДАТЬ', b.x + b.w/2, b.y + 75);
+  ctx.fillStyle = '#2a1a0c'; ctx.fillRect(b.x + b.w/2 - 30, b.y + 120, 60, b.h - 120);
+
+  for (const pile of S.world.hayPiles) {
+    const x = pile.x, y = pile.y;
+    if (pile.amount <= 0) { ctx.strokeStyle = 'rgba(212,168,67,0.2)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x, y+15, 30, 10, 0, 0, Math.PI*2); ctx.stroke(); continue; }
+    
+    const ratio = pile.visualAmount / pile.max; 
+    const baseR = 20 + 25 * ratio; 
+    const squashX = 1 + pile.squash * 0.2;
+    const squashY = 1 - pile.squash * 0.2;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(squashX, squashY);
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; 
+    ctx.beginPath(); ctx.ellipse(0, baseR*0.5, baseR*1.1, baseR*0.4, 0, 0, Math.PI*2); ctx.fill(); 
+    
+    const grad = ctx.createLinearGradient(0, -baseR, 0, baseR);
+    grad.addColorStop(0, '#f5d878'); grad.addColorStop(1, '#a07a1c');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); 
+    ctx.moveTo(-baseR, baseR*0.5); 
+    ctx.quadraticCurveTo(-baseR*0.8, -baseR*0.8, 0, -baseR); 
+    ctx.quadraticCurveTo(baseR*0.8, -baseR*0.8, baseR, baseR*0.5); 
+    ctx.fill();
+    
+    ctx.strokeStyle = '#8a6a1c'; ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) { 
+      const a = (i/6)*Math.PI + Math.PI + pile.wobble*0.2; 
+      ctx.beginPath(); 
+      ctx.moveTo(Math.cos(a)*baseR*0.7, Math.sin(a)*baseR*0.4); 
+      ctx.lineTo(Math.cos(a)*baseR*(1.2 + pile.squash*0.5), Math.sin(a)*baseR*(0.8 + pile.squash*0.5)); 
+      ctx.stroke(); 
+    }
+    
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.strokeText(pile.amount, 0, -baseR - 8); ctx.fillText(pile.amount, 0, -baseR - 8);
+    ctx.restore();
+  }
+
+  if (activeEvent) {
+    const e = activeEvent; const pulse = Math.sin(world.time * 10) * 0.2 + 1;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.scale(pulse, pulse);
+    if (e.type === 'gold') {
+      ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.ellipse(0, 5, 30, 15, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffea00'; ctx.beginPath(); ctx.ellipse(0, 0, 25, 20, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('💰', 0, 0);
+    } else {
+      ctx.fillStyle = '#4a4a4a'; ctx.beginPath(); ctx.ellipse(0, 0, 20, 12, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#6a6a6a'; ctx.beginPath(); ctx.arc(15, -5, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ff0000'; ctx.beginPath(); ctx.arc(18, -6, 2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  for (const pt of world.particles) {
+    ctx.globalAlpha = clamp(pt.life, 0, 1); 
+    ctx.save(); ctx.translate(pt.x, pt.y); ctx.rotate(pt.rot || 0);
+    if (pt.type === 'straw') { ctx.fillStyle = pt.color; ctx.beginPath(); ctx.ellipse(0, 0, 6, 3, 0, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = '#8a6a1c'; ctx.lineWidth = 1; ctx.stroke(); }
+    else { ctx.fillStyle = pt.color; ctx.beginPath(); ctx.arc(0, 0, pt.size || 4, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-1, -1, (pt.size||4)*0.4, 0, Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  for (const npc of npcs) {
+    const nx = npc.x, ny = npc.y, pr = 22; const bob = Math.sin(npc.anim) * 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(nx, ny + pr * 0.9, pr * 1.1, pr * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#4a8a9a'; ctx.beginPath(); ctx.arc(nx, ny + bob, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f0c89a'; ctx.beginPath(); ctx.arc(nx, ny - pr * 0.35 + bob, pr * 0.6, 0, Math.PI * 2); ctx.fill();
+    if (npc.carry > 0) { ctx.fillStyle = '#d4a843'; ctx.beginPath(); ctx.arc(nx, ny - pr * 1.5 + bob, 14, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  renderPlayer(ctx);
+  
+  // ДРУГИЕ ИГРОКИ
+  for (const id in otherPlayers) {
+    const op = otherPlayers[id];
+    const px = op.x, py = op.y;
+    
+    renderOtherPlayer(ctx, op);
+    
+    if (op.talking) {
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.beginPath(); ctx.arc(px, py - 80, 16, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#6fcf6f'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#6fcf6f';
+      ctx.fillText('🎤', px, py - 80);
+    }
+  }
+
+  for (const ft of world.floatTexts) { ctx.globalAlpha = clamp(ft.life, 0, 1); ctx.fillStyle = ft.color; ctx.font = 'bold 28px sans-serif'; ctx.strokeStyle = '#000'; ctx.lineWidth = 5; ctx.textAlign = 'center'; ctx.strokeText(ft.text, ft.x, ft.y); ctx.fillText(ft.text, ft.x, ft.y); }
+  ctx.globalAlpha = 1;
+
+  const near = getActionTarget();
+  if (near) {
+    const p = world.player; ctx.fillStyle = 'rgba(232,176,74,0.9)'; ctx.font = 'bold 22px sans-serif'; ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+    const label = near.type === 'deposit' ? '[E] СДАТЬ' : '[E] СОБРАТЬ';
+    ctx.strokeText(label, p.x, p.y - 85); ctx.fillText(label, p.x, p.y - 85);
+  }
+  if (autoTarget) { ctx.strokeStyle = 'rgba(111,207,111,0.8)'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.arc(autoTarget.x, autoTarget.y, 45, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+}
+
+function renderOtherPlayer(ctx, op) {
+  const px = op.x, py = op.y;
+  const pr = CONFIG.playerRadius;
+  const loc = LOCATIONS[S.currentLocation] || LOCATIONS.warehouse;
+  const isMoving = true; 
+  const walk = Math.sin(Date.now() / 150) * (isMoving ? 1 : 0); 
+
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(px, py + pr * 0.8, pr * 0.8, pr * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.save();
+  ctx.translate(px, py);
+
+  // Ноги
+  ctx.fillStyle = '#2a2a2a';
+  ctx.beginPath(); ctx.ellipse(-8, pr * 0.8, 6, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(8, pr * 0.8, 6, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Торс (синий, чтобы отличать от себя)
+  ctx.fillStyle = '#4a6a8a';
+  ctx.beginPath();
+  const torsoW = pr * 1.2;
+  const torsoH = pr * 1.6;
+  ctx.roundRect(-torsoW/2, -torsoH/2, torsoW, torsoH, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Сено (если несет)
+  if (op.carried > 0) {
+    const hr = pr * 0.6 + pr * 0.4;
+    ctx.fillStyle = '#d4a843';
+    ctx.beginPath(); ctx.ellipse(0, torsoH*0.1, hr, hr*0.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8a6a1c'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // Руки
+  ctx.strokeStyle = '#f0c89a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-torsoW/2, -torsoH*0.2); ctx.lineTo(-torsoW/2 - 10, -torsoH*0.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(torsoW/2, -torsoH*0.2); ctx.lineTo(torsoW/2 + 10, -torsoH*0.2); ctx.stroke();
+
+  // Голова
+  ctx.fillStyle = '#f0c89a';
+  ctx.beginPath(); ctx.arc(0, -torsoH/2 - pr*0.4, pr * 0.65, 0, Math.PI * 2); ctx.fill();
+
+  // Глаза
+  const eyeDirX = Math.cos(op.dir || 0) * 3; const eyeDirY = Math.sin(op.dir || 0) * 3;
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath(); ctx.arc(-5 + eyeDirX, -torsoH/2 - pr*0.4 + eyeDirY, 2.5, 0, Math.PI * 2); ctx.arc(5 + eyeDirX, -torsoH/2 - pr*0.4 + eyeDirY, 2.5, 0, Math.PI * 2); ctx.fill();
+
+  // Шляпа
+  const hatType = op.hat || 'none';
+  if (hatType !== 'none') {
+    ctx.save();
+    ctx.translate(0, -torsoH/2 - pr*0.7);
+    if (hatType === 'cap') { ctx.fillStyle = '#2a5a8a'; ctx.beginPath(); ctx.ellipse(0, 0, 15, 5, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#3a7a9a'; ctx.beginPath(); ctx.arc(0, -5, 12, Math.PI, 0); ctx.fill(); }
+    else if (hatType === 'top') { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-10, -25, 20, 25); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-15, 0, 30, 5); }
+    else if (hatType === 'crown') { ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-12, -15); ctx.lineTo(-6, -8); ctx.lineTo(0, -18); ctx.lineTo(6, -8); ctx.lineTo(12, -15); ctx.lineTo(12, 0); ctx.fill(); }
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // Имя над головой
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.textAlign = 'center';
+  ctx.strokeText(op.name || 'Игрок', px, py - pr * 2.5);
+  ctx.fillText(op.name || 'Игрок', px, py - pr * 2.5);
+}
+
+function renderPlayer(ctx) {
+  const p = world.player; const px = p.x, py = p.y, pr = CONFIG.playerRadius; 
+  const loc = LOCATIONS[S.currentLocation] || LOCATIONS.warehouse;
+  const tool = getActiveTool();
+  
+  const bob = Math.sin(p.animPhase) * 3;
+  const tilt = p.tilt; 
+  const walk = Math.sin(p.walkPhase);
+  const isMoving = p.speed > 10;
+
+  const collectTilt = p.collectAnim * 0.5;
+  const collectArmExtend = p.collectAnim * 15;
+  
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; 
+  ctx.beginPath(); 
+  ctx.ellipse(px, py + pr * 0.8, pr * (0.8 - collectTilt*0.2), pr * 0.3, 0, 0, Math.PI * 2); 
+  ctx.fill();
+  
+  if (tool && (tool.id === 'wheelbarrow' || tool.id === 'bucket')) drawToolInHand(ctx, tool, px, py, pr, bob, 'back', false);
+
+  ctx.save();
+  ctx.translate(px, py + bob);
+  ctx.rotate(tilt + collectTilt);
+
+  const legOffset = isMoving ? walk * 8 : 0;
+  ctx.fillStyle = '#2a2a2a';
+  ctx.beginPath(); ctx.ellipse(-8, pr * 0.8 + legOffset * 0.5, 6, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(8, pr * 0.8 - legOffset * 0.5, 6, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = loc.color;
+  ctx.beginPath();
+  const torsoW = pr * 1.2;
+  const torsoH = pr * 1.6;
+  ctx.roundRect(-torsoW/2, -torsoH/2, torsoW, torsoH, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+
+  if (S.world.carried > 0 && (!tool || (tool.id !== 'wheelbarrow' && tool.id !== 'bucket'))) {
+    const carryMax = getEffectiveCarryMax(); 
+    const ratio = clamp(S.world.carried / carryMax, 0, 1);
+    const hayWobble = Math.sin(world.time * 5) * 2;
+    const hr = pr * 0.6 + pr * 0.4 * ratio;
+    ctx.fillStyle = '#d4a843'; 
+    ctx.beginPath(); ctx.ellipse(0, torsoH*0.1 + hayWobble, hr, hr*0.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8a6a1c'; ctx.lineWidth = 2; ctx.stroke();
+    for(let i=0; i<5; i++) {
+      const ang = (i/5) * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(Math.cos(ang)*hr*0.5, torsoH*0.1+Math.sin(ang)*hr*0.4);
+      ctx.lineTo(Math.cos(ang)*hr*1.2, torsoH*0.1+Math.sin(ang)*hr*1.0); ctx.stroke();
+    }
+  }
+
+  const armSwing = isMoving ? walk * 6 : 0;
+  ctx.strokeStyle = '#f0c89a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  const armOut = (S.world.carried > 0) ? 5 : 0;
+  
+  ctx.beginPath(); ctx.moveTo(-torsoW/2, -torsoH*0.2); ctx.lineTo(-torsoW/2 - 10 - collectArmExtend - armOut, -torsoH*0.2 + armSwing + collectArmExtend); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(torsoW/2, -torsoH*0.2); ctx.lineTo(torsoW/2 + 10 + collectArmExtend + armOut, -torsoH*0.2 - armSwing + collectArmExtend); ctx.stroke();
+
+  ctx.fillStyle = '#f0c89a';
+  ctx.beginPath(); ctx.arc(0, -torsoH/2 - pr*0.4, pr * 0.65, 0, Math.PI * 2); ctx.fill();
+
+  const eyeDirX = Math.cos(p.dir) * 3; const eyeDirY = Math.sin(p.dir) * 3;
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath(); ctx.arc(-5 + eyeDirX, -torsoH/2 - pr*0.4 + eyeDirY, 2.5, 0, Math.PI * 2); ctx.arc(5 + eyeDirX, -torsoH/2 - pr*0.4 + eyeDirY, 2.5, 0, Math.PI * 2); ctx.fill();
+
+  const hatType = S.currentHat || 'none';
+  if (hatType !== 'none') {
+    ctx.save();
+    ctx.translate(0, -torsoH/2 - pr*0.7); 
+    if (hatType === 'cap') { ctx.fillStyle = '#2a5a8a'; ctx.beginPath(); ctx.ellipse(0, 0, 15, 5, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#3a7a9a'; ctx.beginPath(); ctx.arc(0, -5, 12, Math.PI, 0); ctx.fill(); }
+    else if (hatType === 'top') { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-10, -25, 20, 25); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-15, 0, 30, 5); }
+    else if (hatType === 'crown') { ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-12, -15); ctx.lineTo(-6, -8); ctx.lineTo(0, -18); ctx.lineTo(6, -8); ctx.lineTo(12, -15); ctx.lineTo(12, 0); ctx.fill(); }
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  if (tool && tool.id !== 'wheelbarrow' && tool.id !== 'bucket') {
+    ctx.save(); ctx.translate(px, py + bob); ctx.rotate(tilt + collectTilt);
+    ctx.font = `${pr * 1.4}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(tool.icon, pr * 0.8 + collectArmExtend + (isMoving ? walk * 2 : 0), -pr * 0.2 + collectArmExtend);
+    ctx.restore();
+  }
+
+  if (tool && (tool.id === 'wheelbarrow' || tool.id === 'bucket')) {
+    drawToolInHand(ctx, tool, px, py, pr, bob, 'back', true);
+    if (S.world.carried > 0) {
+      const carryMax = getEffectiveCarryMax(); const ratio = clamp(S.world.carried / carryMax, 0, 1);
+      const hayWobble = Math.sin(world.time * 5) * 2;
+      if (tool.id === 'wheelbarrow') { ctx.fillStyle = '#d4a843'; ctx.beginPath(); ctx.ellipse(px - pr * 1.1, py + pr * 0.3 + bob + hayWobble*0.5, 15 + 15 * ratio, 10 + 10 * ratio, 0, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.fillStyle = '#d4a843'; ctx.beginPath(); ctx.ellipse(px - pr * 1.0, py + pr * 0.4 + bob + hayWobble*0.5, 12 + 10 * ratio, 8 + 8 * ratio, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+
+  if (S.world.carried > 0) {
+    const carryMax = getEffectiveCarryMax(); const ratio = clamp(S.world.carried / carryMax, 0, 1);
+    const textY = py - pr * 2.5 + bob;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.textAlign = 'center';
+    ctx.strokeText(S.world.carried, px, textY); ctx.fillText(S.world.carried, px, textY);
+    const barW = 40; const barH = 6;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(px - barW/2, textY - 18, barW, barH);
+    ctx.fillStyle = ratio > 0.8 ? '#e05555' : '#e8b04a'; ctx.fillRect(px - barW/2, textY - 18, barW * ratio, barH);
+  }
+}
+
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+    this.beginPath(); this.moveTo(x+r, y); this.arcTo(x+w, y, x+w, y+h, r);
+    this.arcTo(x+w, y+h, x, y+h, r); this.arcTo(x, y+h, x, y, r); this.arcTo(x, y, x+w, y, r);
+    this.closePath(); return this;
+  }
+}
+
+function drawToolInHand(ctx, tool, px, py, pr, bob, layer, isFrontOfHay) {
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (tool.id === 'wheelbarrow' && layer === 'back') { ctx.font = `${pr * 1.2}px sans-serif`; ctx.fillText('🛒', px - pr * 1.1, py + pr * 0.3 + bob); }
+  else if (tool.id === 'bucket' && layer === 'back') { ctx.font = `${pr * 1.0}px sans-serif`; ctx.fillText('🪣', px - pr * 1.0, py + pr * 0.4 + bob); }
+  ctx.restore();
+}
+
+function getActionTarget() {
+  const p = world.player; const b = CONFIG.baseRect; const cx = b.x + b.w / 2, cy = b.y + b.h / 2; const radius = getActionRadius();
+  if (Math.hypot(p.x - cx, p.y - cy) < Math.max(b.w, b.h) / 2 + 60) return { type: 'deposit' };
+  let closest = null, closestD = Infinity;
+  for (const pile of S.world.hayPiles) { if (pile.amount <= 0) continue; const d = Math.hypot(p.x - pile.x, p.y - pile.y); if (d < closestD) { closestD = d; closest = pile; } }
+  if (closest && closestD < radius + 30) return { type: 'collect', pile: closest };
+  return null;
+}
+
+function performAction() {
+  ensureAudio(); const target = getActionTarget();
+  if (!target) { showWorldMsg('Подойдите к сену или к базе'); return; }
+  if (target.type === 'deposit') { if (S.world.carried > 0) depositHay(); else showWorldMsg('Нечего сдавать'); return; }
+  if (target.type === 'collect') { if (S.world.carried >= getEffectiveCarryMax()) { showWorldMsg('Руки полны!'); return; } collectHay(target.pile); }
+}
+
+async function collectHay(pile) {
+  const carryMax = getEffectiveCarryMax(); const collectAmount = getCollectAmount();
+  let want = Math.min(carryMax - S.world.carried, pile.amount, collectAmount);
+  if (S.currentLocation === 'field') want = Math.ceil(want * 1.2);
+  want = Math.min(carryMax - S.world.carried, pile.amount, want);
+  if (want <= 0) return;
+
+  if (MP.ready) {
+    const pileIndex = S.world.hayPiles.indexOf(pile);
+    const pileRef = ref(db, `rooms/${MP.roomId}/state/hayPiles/${pileIndex}`);
+    let taken = 0;
+    const result = await runTransaction(pileRef, (p) => {
+      if (!p || p.amount <= 0) return;
+      taken = Math.min(p.amount, want);
+      p.amount -= taken; p.lastRefresh = Date.now();
+      return p;
+    });
+    if (!result.committed) return;
+    
+    pile.amount -= taken; pile.lastRefresh = Date.now(); pile.squash = 1;
+    S.world.carried += taken; S.manualSearches++; world.player.collectAnim = 1;
+    SFX.pick();
+    for (let i = 0; i < (IS_MOBILE ? 6 : 12); i++) {
+      world.particles.push({ x: pile.x, y: pile.y, vx: (Math.random() - 0.5) * 150, vy: -50 - Math.random() * 100, gravity: 300, life: 0.6 + Math.random() * 0.4, rot: Math.random()*Math.PI, vr: (Math.random()-0.5)*15, color: '#d4a843', type: 'straw' });
+    }
+    world.floatTexts.push({ x: pile.x, y: pile.y - 40, text: `+${taken} 🌾`, color: '#f2b33d', life: 1 });
+    safe(updateHUD); popText('rHay');
+    
+    S.searchProgress += CONFIG.manualNeedleChance * taken;
+    if (S.searchProgress >= 1) findNeedle();
+  } else {
+    let take = want;
+    pile.amount -= take; pile.lastRefresh = Date.now(); pile.squash = 1;
+    S.world.carried += take; S.manualSearches++; world.player.collectAnim = 1;
+    SFX.pick();
+    world.floatTexts.push({ x: pile.x, y: pile.y - 40, text: `+${take} 🌾`, color: '#f2b33d', life: 1 });
+    safe(updateHUD); popText('rHay');
+  }
+}
+
+async function depositHay() {
+  const amount = S.world.carried; if (amount <= 0) return;
+  let pricePer = CONFIG.haySellPrice * (1 + (S.playerLv - 1) * 0.03);
+  if (S.currentLocation === 'barn') pricePer *= 1.2;
+  const money = Math.floor(amount * pricePer);
+
+  if (MP.ready) {
+    const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+    const result = await runTransaction(stateRef, (s) => {
+      if (!s) return s;
+      s.hay = (s.hay || 0) + amount; s.money = (s.money || 0) + money;
+      s.totalDeposited = (s.totalDeposited || 0) + amount; s.totalMoneyEarned = (s.totalMoneyEarned || 0) + money; s.strawsTotal = (s.strawsTotal || 0) + amount;
+      return s;
+    });
+    if (!result.committed) { toast('⚠ Не удалось сдать'); return; }
+  } else {
+    S.money += money; S.totalMoneyEarned += money; S.hay += amount; S.totalDeposited += amount;
+  }
+
+  S.world.carried = 0; addXP(amount * CONFIG.xpPerHay); SFX.deposit();
+  const p = world.player;
+  for (let i = 0; i < 15; i++) {
+    world.particles.push({ x: p.x, y: p.y - 30, vx: (Math.random() - 0.5) * 200, vy: -150 - Math.random() * 100, gravity: 400, life: 0.6, rot: 0, vr: 0, color: '#ffd700', type: 'coin', size: 4 });
+  }
+  world.floatTexts.push({ x: p.x, y: p.y - 60, text: `+${money} 💰`, color: '#6fcf6f', life: 1 });
+  safe(updateHUD); safe(renderShop); safe(renderCraft); safe(renderAchievements); popText('rMoney');
+}
+
+function addXP(xp) {
+  S.playerXP += xp; let leveled = false;
+  while (S.playerXP >= xpForLevel(S.playerLv)) { S.playerXP -= xpForLevel(S.playerLv); S.playerLv++; S.playerSpeedBonus += 0.03; if (S.playerLv % 4 === 0) S.carryMax += 3; leveled = true; }
+  if (leveled) { toast(`🎉 Уровень ${S.playerLv}! Скорость +3%`); SFX.needle(); triggerFlash(); safe(updateHUD); }
+}
+function xpForLevel(lv) { return Math.floor(CONFIG.xpBase * Math.pow(CONFIG.xpMult, lv - 1)); }
+function showWorldMsg(msg) { const el = document.getElementById('worldMsg'); if (!el) return; el.textContent = msg; el.classList.add('show'); clearTimeout(showWorldMsg._t); showWorldMsg._t = setTimeout(() => el.classList.remove('show'), 1800); }
+
+function itemCost(item) { return Math.floor(item.cost * Math.pow(item.mult, S.shop[item.id] || 0)); }
+function renderShop() {
+  const grid = document.getElementById('shopGrid'); if (!grid) return; grid.innerHTML = '';
+  const autoMult = getAutoMultiplier();
+  SHOP_ITEMS.forEach(item => {
+    const lvl = S.shop[item.id] || 0; const cost = itemCost(item); const maxed = lvl >= item.max; const affordable = S.money >= cost && !maxed;
+    const isTool = !!TOOLS[item.id]; const equipped = isTool && S.equippedTool === item.id; const owned = lvl > 0;
+    const hasStraws = !!item.effect.straws; const autoLocked = hasStraws && autoMult === 0;
+    let bonusText = '';
+    if (isTool) bonusText = `<div class="bonus">${TOOLS[item.id].bonusText} за ур.</div>`;
+    else if (autoLocked) bonusText = `<div class="bonus" style="color:#e05555">⚠ Без автоматизации = 0</div>`;
+    else if (autoMult > 0 && hasStraws) bonusText = `<div class="bonus">активно на ${Math.round(autoMult * 100)}%</div>`;
+    
+    const card = document.createElement('div'); card.className = 'card' + (maxed ? ' owned' : '') + (equipped ? ' equipped' : '');
+    card.innerHTML = `
+      <div class="head">
+        <div style="flex:1">
+          <div class="name">${item.name}${equipped ? '<span class="equippedTag">В РУКЕ</span>' : ''}</div>
+          <div class="desc">${item.desc}</div>
+          ${bonusText}
+        </div>
+        <div class="icon">${item.icon}</div>
+      </div>
+      <div class="price"><span>${maxed ? '✅ Максимум' : '💰 ' + fmt(cost)}</span><span class="cnt">Ур. ${lvl}/${item.max}</span></div>
+      <div class="lvlBarWrap"><div class="lvlBar" style="width:${(lvl/item.max)*100}%"></div></div>
+      <div class="btnRow">
+        <button ${maxed || !affordable ? 'disabled' : ''} data-buy="${item.id}">${maxed ? 'Куплено' : (affordable ? 'Купить' : 'Мало денег')}</button>
+        ${isTool && owned ? `<button class="equipBtn ${equipped ? 'on' : ''}" data-equip="${item.id}">${equipped ? '✓ В руке' : 'Экипировать'}</button>` : ''}
+      </div>`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('button[data-buy]').forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); buyItem(btn.dataset.buy); }));
+  grid.querySelectorAll('button[data-equip]').forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleEquip(btn.dataset.equip); }));
+}
+
+async function buyItem(id) {
+  const item = SHOP_ITEMS.find(i => i.id === id); if (!item) return;
+  const lvl = S.shop[id] || 0; if (lvl >= item.max) return;
+  const cost = itemCost(item); if (S.money < cost) { SFX.error(); return; }
+
+  if (MP.ready) {
+    const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+    const result = await runTransaction(stateRef, (s) => {
+      if (!s) return s;
+      const curLvl = (s.shop && s.shop[id]) || 0;
+      if (curLvl >= item.max) return;
+      const curCost = Math.floor(item.cost * Math.pow(item.mult, curLvl));
+      if ((s.money || 0) < curCost) return;
+      s.money -= curCost;
+      s.shop = s.shop || {}; s.shop[id] = curLvl + 1;
+      return s;
+    });
+    if (!result.committed) { SFX.error(); toast('Не хватило денег (кто-то купил раньше)'); return; }
+  } else {
+    S.money -= cost; S.shop[id] = lvl + 1;
+  }
+
+  SFX.buy(); popText('rMoney');
+  if (TOOLS[id]) { S.equippedTool = id; toast(`${TOOLS[id].icon} ${TOOLS[id].name} экипирован!`); }
+  safe(updateHUD); safe(renderShop);
+}
+
+function toggleEquip(id) {
+  if (!TOOLS[id]) return; const lvl = S.shop[id] || 0; if (lvl <= 0) return;
+  if (S.equippedTool === id) { S.equippedTool = null; toast(`Снят: ${TOOLS[id].name}`); }
+  else { S.equippedTool = id; toast(`${TOOLS[id].icon} ${TOOLS[id].name} в руке!`); }
+  safe(updateHUD); safe(renderShop);
+}
+
+function renderTech() {
+  const grid = document.getElementById('techGrid'); if (!grid) return; grid.innerHTML = '';
+  TECH_ITEMS.forEach(t => {
+    const owned = !!S.tech[t.id]; const reqOk = !t.requires || !!S.tech[t.requires]; const canBuy = !owned && S.needles >= t.cost && reqOk; const isAuto = t.category === 'auto';
+    const card = document.createElement('div'); card.className = 'card' + (owned ? ' owned' : '') + (!owned && !canBuy ? ' locked' : '');
+    if (isAuto && !owned) card.style.borderColor = 'rgba(232,176,74,0.5)';
+    let reqText = t.requires && !S.tech[t.requires] ? `<div style="font-size:11px;color:#e05555;margin-top:4px;font-weight:700;">🔒 Требуется: ${TECH_ITEMS.find(x => x.id === t.requires)?.name}</div>` : '';
+    let categoryBadge = isAuto ? `<div style="font-size:10px;color:var(--accent);font-weight:800;margin-bottom:4px;">🔧 АВТОМАТИЗАЦИЯ</div>` : '';
+    card.innerHTML = `
+      <div class="head">
+        <div style="flex:1">
+          ${categoryBadge}
+          <div class="name">${t.name}</div>
+          <div class="desc">${t.desc}</div>
+          ${reqText}
+        </div>
+        <div class="icon">${t.icon}</div>
+      </div>
+      <div class="price"><span>🧵 ${t.cost} иголок</span><span class="cnt">${owned ? '✅ Изучено' : (canBuy ? 'Доступно' : (reqOk ? 'Не хватает' : '🔒'))}</span></div>
+      <button ${owned || !canBuy ? 'disabled' : ''} data-tech="${t.id}" style="${isAuto && !owned ? 'background:linear-gradient(135deg, #e8b04a, #cc8a30); color:#000;' : ''}">${owned ? 'Изучено' : 'Изучить'}</button>`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('button[data-tech]').forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); buyTech(btn.dataset.tech); }));
+}
+
+async function buyTech(id) {
+  const t = TECH_ITEMS.find(x => x.id === id); if (!t || S.tech[id]) return;
+  if (t.requires && !S.tech[t.requires]) { toast('Сначала изучите предыдущую'); SFX.error(); return; }
+  if (S.needles < t.cost) { SFX.error(); return; }
+
+  if (MP.ready) {
+    const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+    const result = await runTransaction(stateRef, (s) => {
+      if (!s) return s;
+      s.tech = s.tech || {};
+      if (s.tech[id]) return;
+      if (t.requires && !s.tech[t.requires]) return;
+      if ((s.needles || 0) < t.cost) return;
+      s.needles -= t.cost; s.tech[id] = true;
+      return s;
+    });
+    if (!result.committed) { SFX.error(); toast('Ошибка покупки технологии'); return; }
+  } else {
+    S.tech[id] = true; S.needles -= t.cost;
+  }
+
+  SFX.buy(); triggerFlash();
+  if (t.category === 'auto') { const newMult = Math.round(getAutoMultiplier() * 100); toast(`🔧 ${t.name}! Пассив теперь ${newMult}%`); }
+  else toast(`🌳 Технология: ${t.name}`);
+  safe(updateHUD); safe(renderTech); safe(renderCraft); safe(renderShop);
+}
+
+function renderCraft() {
+  const list = document.getElementById('craftList'); if (!list) return; list.innerHTML = '';
+  CRAFT_RECIPES.forEach(r => {
+    const unlocked = (r.unlock === 'mass' && S.tech['t4']) || (r.unlock === 'bales' && S.tech['t7']) || (r.unlock === 'paper' && S.tech['t9']);
+    const canDo = unlocked && S.hay >= r.hay;
+    const row = document.createElement('div'); row.className = 'craftRow';
+    row.innerHTML = `<div class="info"><div class="n">${r.name} ${!unlocked ? '🔒' : ''}</div><div class="d">${r.desc} ${!unlocked ? '<br><span style="color:#e05555;font-weight:700">Требуется технология</span>' : ''}</div></div><button class="btn ${!canDo ? 'ghost' : ''}" ${!canDo ? 'disabled' : ''} data-craft="${r.id}">${unlocked ? (canDo ? 'Переработать' : 'Мало сена') : '🔒 Закрыто'}</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('button[data-craft]').forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); doCraft(btn.dataset.craft); }));
+}
+
+async function doCraft(id) {
+  const r = CRAFT_RECIPES.find(x => x.id === id); if (!r || S.hay < r.hay) return;
+
+  if (MP.ready) {
+    const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+    const result = await runTransaction(stateRef, (s) => {
+      if (!s || (s.hay || 0) < r.hay) return;
+      s.hay -= r.hay; s.money = (s.money || 0) + r.money; s.totalMoneyEarned = (s.totalMoneyEarned || 0) + r.money;
+      return s;
+    });
+    if (!result.committed) return;
+  } else {
+    S.hay -= r.hay; S.money += r.money; S.totalMoneyEarned += r.money;
+  }
+
+  SFX.buy(); triggerFlash();
+  safe(updateHUD); safe(renderCraft); safe(renderShop); popText('rMoney');
+}
+
+function renderCollection() {
+  const grid = document.getElementById('needleGrid'); if (!grid) return; grid.innerHTML = '';
+  setText('colCount', S.needles);
+  for (let i = 0; i < CONFIG.totalNeedles; i++) {
+    const found = S.collectedNeedles.includes(i);
+    const div = document.createElement('div');
+    div.className = 'needleCard' + (found ? '' : ' locked');
+    div.textContent = found ? '🧵' : '?';
+    if (found) { div.title = NEEDLE_NAMES[i]; div.addEventListener('click', () => showModal('🧵 ' + NEEDLE_NAMES[i], 'Вы нашли эту иголку в стоге сена.')); }
+    grid.appendChild(div);
+  }
+}
+
+function renderLocations() {
+  const grid = document.getElementById('locationsGrid'); if (!grid) return; grid.innerHTML = '';
+  Object.keys(LOCATIONS).forEach(key => {
+    const loc = LOCATIONS[key]; const isCurrent = S.currentLocation === key;
+    const card = document.createElement('div'); card.className = 'card' + (isCurrent ? ' equipped' : '');
+    card.innerHTML = `
+      <div class="head">
+        <div>
+          <div class="name"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${loc.floor};margin-right:8px;border:2px solid rgba(255,255,255,0.2);vertical-align:middle;"></span>${loc.icon} ${loc.name} ${isCurrent ? '<span class="equippedTag">ТУТ</span>' : ''}</div>
+          <div class="desc">${loc.desc}<br><b style="color:var(--success);display:inline-block;margin-top:4px;">${loc.bonus}</b></div>
+        </div>
+      </div>
+      <div class="price"><span>${isCurrent ? 'Текущая' : '💰 ' + CONFIG.locationCost}</span></div>
+      <button ${isCurrent ? 'disabled' : ''} data-loc="${key}">${isCurrent ? 'Вы здесь' : 'Переехать'}</button>`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('button[data-loc]').forEach(btn => btn.addEventListener('click', async () => {
+    const key = btn.dataset.loc;
+    if (S.money < CONFIG.locationCost) { toast('Не хватает денег'); return; }
+
+    if (MP.ready) {
+      const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+      const result = await runTransaction(stateRef, (s) => {
+        if (!s || (s.money || 0) < CONFIG.locationCost) return;
+        s.money -= CONFIG.locationCost; s.currentLocation = key;
+        return s;
+      });
+      if (!result.committed) { toast('Ошибка переезда'); return; }
+    } else {
+      S.money -= CONFIG.locationCost; S.currentLocation = key;
+    }
+
+    toast(`Переезд в ${LOCATIONS[key].name}`);
+    updateHUD(); renderLocations(); triggerFlash();
+  }));
+}
+
+function renderCustomize() {
+  const grid = document.getElementById('hatsGrid'); if (!grid) return; grid.innerHTML = '';
+  Object.keys(HATS).forEach(key => {
+    const hat = HATS[key]; const owned = S.unlockedHats.includes(key); const isCurrent = S.currentHat === key;
+    const card = document.createElement('div'); card.className = 'card' + (isCurrent ? ' equipped' : '');
+    card.innerHTML = `
+      <div class="head"><div><div class="name">${hat.icon} ${hat.name} ${isCurrent ? '<span class="equippedTag">НАДЕТО</span>' : ''}</div></div><div class="icon">${hat.icon}</div></div>
+      <div class="price"><span>${owned ? '✅ Куплено' : '💰 ' + hat.cost}</span></div>
+      <button ${isCurrent ? 'disabled' : ''} data-hat="${key}">${isCurrent ? 'Надето' : (owned ? 'Надеть' : 'Купить')}</button>`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('button[data-hat]').forEach(btn => btn.addEventListener('click', () => {
+    const key = btn.dataset.hat; const hat = HATS[key]; const owned = S.unlockedHats.includes(key);
+    if (!owned) { if (S.money < hat.cost) { toast('Не хватает денег'); return; } S.money -= hat.cost; S.unlockedHats.push(key); }
+    S.currentHat = key; toast(`Надето: ${hat.name}`); updateHUD(); renderCustomize();
+  }));
+}
+
+function updateHUD() {
+  const prod = computeProduction(); const tool = getActiveTool(); const carryMax = getEffectiveCarryMax();
+  setText('rHay', fmt(S.hay)); setText('rMoney', fmt(S.money)); setText('rNeedles', S.needles);
+  const rateEl = document.getElementById('rRate');
+  if (rateEl) { if (prod.autoMult > 0) { rateEl.textContent = fmt(prod.straws); rateEl.className = 'v'; } else { rateEl.textContent = '0 (🔒)'; rateEl.className = 'v off'; } }
+  setText('needlesFound', S.needles); setText('locName', LOCATIONS[S.currentLocation]?.name || 'Склад');
+  setText('carryHay', S.world.carried); setText('carryMax', carryMax);
+  setText('workerHud', S.workers); setText('workerSalary', CONFIG.workerSalary);
+  
+  const equipEl = document.getElementById('equipHud'); if (equipEl) equipEl.textContent = tool ? `${tool.icon} ${tool.name} (ур. ${tool.level})` : '🖐 Без инструмента';
+  const autoEl = document.getElementById('autoHud');
+  if (autoEl) { if (prod.autoMult === 0) { autoEl.textContent = '🔒 Пассив: закрыт'; autoEl.className = 'wcell autooff'; } else { autoEl.textContent = `⚡ Пассив: ${Math.round(prod.autoMult * 100)}%`; autoEl.className = 'wcell autoon'; } }
+  
+  const sb = document.getElementById('searchBarWrap'); const sf = document.getElementById('searchFill');
+  if (sb && sf) { sb.classList.add('active'); sf.style.width = (S.searchProgress * 100) + '%'; }
+
+  const ab = document.getElementById('actionBtn');
+  if (ab) {
+    const near = getActionTarget();
+    if (near && near.type === 'deposit') { ab.textContent = 'СДАТЬ'; ab.className = 'actionBtn deposit'; }
+    else { ab.textContent = 'СОБРАТЬ'; ab.className = 'actionBtn'; }
+  }
+  updateBadges();
+}
+
+function updateBadges() {
+  const tabs = document.querySelectorAll('.tab');
+  let canBuy = 0; SHOP_ITEMS.forEach(item => { const lvl = S.shop[item.id] || 0; if (lvl < item.max && S.money >= itemCost(item)) canBuy++; });
+  let canTech = 0; TECH_ITEMS.forEach(t => { const reqOk = !t.requires || !!S.tech[t.requires]; if (!S.tech[t.id] && S.needles >= t.cost && reqOk) canTech++; });
+  let canCraft = 0; CRAFT_RECIPES.forEach(r => { const unlocked = (r.unlock === 'mass' && S.tech['t4']) || (r.unlock === 'bales' && S.tech['t7']) || (r.unlock === 'paper' && S.tech['t9']); if (unlocked && S.hay >= r.hay) canCraft++; });
+  const badge = (n) => n > 0 ? `<span class="badge">${n}</span>` : '';
+  const map = { world: '', shop: badge(canBuy), tech: badge(canTech), craft: badge(canCraft), stats: '' };
+  tabs.forEach(tab => { const key = tab.dataset.tab; const label = tab.textContent.replace(/\d+$/, '').replace(/\s+$/, ''); tab.innerHTML = label + (map[key] || ''); });
+}
+
+function renderStats() {
+  const box = document.getElementById('statsBox'); if (!box) return;
+  const prod = computeProduction(); const tool = getActiveTool(); const time = Math.floor(S.playTime);
+  const hh = Math.floor(time / 3600); const mm = Math.floor((time % 3600) / 60); const ss = time % 60;
+  const autoLabel = prod.autoMult === 0 ? '<span style="color:#e05555">🔒 закрыт</span>' : `<span style="color:#6fcf6f">${Math.round(prod.autoMult * 100)}%</span>`;
+  box.innerHTML = `
+    <div>🧵 Иголок: <b>${S.needles} / ${CONFIG.totalNeedles}</b></div>
+    <div>🌾 Сена: <b>${fmtInt(S.strawsTotal)}</b></div>
+    <div>📦 Сдано: <b>${fmtInt(S.totalDeposited)}</b></div>
+    <div>💰 Заработано: <b>${fmt(S.totalMoneyEarned)}</b></div>
+    <div>⚡ Пассив: <b>${fmt(prod.straws)}/сек</b> (${autoLabel})</div>
+    <div>👷 Рабочих: <b>${S.workers}</b></div>
+    <div>💪 Уровень: <b>${S.playerLv}</b> (XP ${S.playerXP}/${xpForLevel(S.playerLv)})</div>
+    <div>🎒 Вместимость: <b>${getEffectiveCarryMax()}</b></div>
+    <div>🏃 Скорость: <b>${Math.round(getWalkSpeed())}</b></div>
+    <div>🔧 В руке: <b>${tool ? tool.icon + ' ' + tool.name + ' ур.' + tool.level : '—'}</b></div>
+    <div>⏱ Время: <b>${hh}ч ${mm}м ${ss}с</b></div>`;
+}
+
+function log(msg, cls = '') { const el = document.getElementById('log'); if (!el) return; const line = document.createElement('div'); line.className = cls; line.textContent = `[${new Date().toLocaleTimeString('ru-RU')}] ${msg}`; el.insertBefore(line, el.firstChild); while (el.children.length > 30) el.removeChild(el.lastChild); }
+let toastTimer = null;
+function toast(msg) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+function showModal(title, text) { const mt = document.getElementById('modalTitle'); const mx = document.getElementById('modalText'); const m = document.getElementById('modal'); if (mt) mt.textContent = title; if (mx) mx.textContent = text; if (m) m.classList.add('show'); }
+
+let lastFrame = performance.now(); let saveTimer = 0; let frameCount = 0;
+function gameLoop(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  S.playTime += dt; passiveIncome(dt);
+  saveTimer += dt; if (saveTimer >= 5) { saveTimer = 0; safe(saveState); }
+  frameCount++; if (frameCount % (IS_MOBILE ? 12 : 6) === 0) {
+    safe(updateHUD); safe(checkAchievements);
+    const active = document.querySelector('.panel.active');
+    if (active) {
+      if (active.id === 'panel-stats') safe(renderStats);
+      if (active.id === 'panel-craft') safe(renderCraft);
+    }
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+function saveState() {
+  S.lastTick = Date.now();
+  storage.set(CONFIG.saveKey, JSON.stringify(S));
+}
+
+function init() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('panel-' + tab.dataset.tab); if (panel) panel.classList.add('active');
+      if (tab.dataset.tab === 'shop') renderShop();
+      if (tab.dataset.tab === 'tech') renderTech();
+      if (tab.dataset.tab === 'craft') renderCraft();
+      if (tab.dataset.tab === 'achievements') renderAchievements();
+      if (tab.dataset.tab === 'stats') renderStats();
+      if (tab.dataset.tab === 'collection') renderCollection();
+      if (tab.dataset.tab === 'locations') renderLocations();
+      if (tab.dataset.tab === 'customize') renderCustomize();
+      beep(500, 0.04, 'sine', 0.05);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  document.getElementById('hireWorkerBtn').addEventListener('click', async () => {
+    if (S.money < CONFIG.workerBaseCost) { toast('Не хватает денег на найм!'); return; }
+    if (MP.ready) {
+      const stateRef = ref(db, `rooms/${MP.roomId}/state`);
+      const result = await runTransaction(stateRef, (s) => {
+        if (!s || (s.money || 0) < CONFIG.workerBaseCost) return;
+        s.money -= CONFIG.workerBaseCost; s.workers = (s.workers || 0) + 1;
+        return s;
+      });
+      if (!result.committed) { toast('Ошибка найма'); return; }
+    } else {
+      S.money -= CONFIG.workerBaseCost; S.workers++;
+    }
+    toast('👷 Нанят рабочий!'); SFX.buy(); updateHUD(); renderShop(); popText('rMoney');
+  });
+
+  const mc = document.getElementById('modalClose'); if (mc) mc.addEventListener('click', () => document.getElementById('modal').classList.remove('show'));
+  const mdl = document.getElementById('modal'); if (mdl) mdl.addEventListener('click', (e) => { if (e.target.id === 'modal') mdl.classList.remove('show'); });
+
+  const rb = document.getElementById('resetBtn');
+  if (rb) rb.addEventListener('click', () => {
+    if (confirm('Сбросить весь прогресс? Необратимо.')) {
+      storage.remove(CONFIG.saveKey); S = defaultState(); S.world.hayPiles = makeHayPiles();
+      safe(updateHUD); safe(renderShop); safe(renderTech); safe(renderCraft); safe(renderCollection); safe(renderLocations); safe(renderCustomize); safe(renderAchievements);
+      toast('Прогресс сброшен'); log('🗑 Прогресс сброшен', 'bad');
+    }
+  });
+
+  const themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) {
+    const savedTheme = storage.get(CONFIG.themeKey);
+    if (savedTheme === 'light') { document.body.classList.add('light'); themeBtn.textContent = '☀️'; }
+    themeBtn.addEventListener('click', () => { document.body.classList.toggle('light'); const light = document.body.classList.contains('light'); themeBtn.textContent = light ? '☀️' : '🌙'; storage.set(CONFIG.themeKey, light ? 'light' : 'dark'); });
+  }
+
+  document.body.addEventListener('pointerdown', ensureAudio, { once: true });
+
+  safe(initWorld); safe(renderShop); safe(renderTech); safe(renderCraft); safe(updateHUD); safe(renderCollection); safe(renderAchievements);
+
+  log('Добро пожаловать! Обновление v22: Мультиплеер + Голосовой чат.', 'warn');
+  
+  lastFrame = performance.now(); requestAnimationFrame(gameLoop);
+  window.addEventListener('beforeunload', () => safe(saveState));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) safe(saveState); });
+
+  initMultiplayer();
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => safe(init));
+else safe(init);
+</script>
+</body>
+</html>
