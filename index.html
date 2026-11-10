@@ -175,7 +175,6 @@
   #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 1000; transition: opacity 0.1s; }
   #flash.active { opacity: 0.3; }
 
-  /* Индикаторы связи и микрофона */
   #connStatus {
     position: fixed; bottom: 20px; left: 20px; z-index: 999;
     display: flex; flex-direction: column; gap: 8px; pointer-events: none;
@@ -189,7 +188,6 @@
   .conn-dot.green { background: #6fcf6f; box-shadow: 0 0 8px #6fcf6f; }
   .conn-dot.yellow { background: #e8b04a; }
   
-  /* Полоска громкости микрофона */
   #micVolumeWrap {
     width: 100px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;
   }
@@ -382,7 +380,7 @@
 
 <script type="module">
 /* =========================================================================
-   NEEDLE IN THE HAYSTACK v24 — VISUAL VOICE DEBUG
+   NEEDLE IN THE HAYSTACK v25 — FIREBASE RULES FIX
    ========================================================================= */
 
 if (!location.search.includes('v=')) {
@@ -415,7 +413,7 @@ let otherPlayers = {};
 let voice = { localStream: null, peers: {}, enabled: false, audioCtx: null, analyzer: null };
 
 const CONFIG = {
-  totalNeedles: 24, saveKey: 'nih_save_v24', themeKey: 'nih_theme',
+  totalNeedles: 24, saveKey: 'nih_save_v25', themeKey: 'nih_theme',
   worldW: 1400, worldH: 1050, playerRadius: 24, playerSpeed: 260,
   carryBase: 15, haySellPrice: 2, hayPilesCount: 10, hayPerPile: 6,
   pileReplenishTime: 12, actionRadius: 80,
@@ -567,7 +565,7 @@ async function initMultiplayer() {
       
       const initialPiles = makeHayPiles();
       await set(ref(db, 'rooms/' + roomId), {
-        meta: { createdAt: Date.now(), version: 24 },
+        meta: { createdAt: Date.now(), version: 25 },
         state: { hay: 0, money: 0, needles: 0, strawsTotal: 0, totalDeposited: 0, totalMoneyEarned: 0, shop: {}, tech: {}, workers: 0, currentLocation: 'warehouse', hayPiles: initialPiles.map(p => ({ x: p.x, y: p.y, amount: p.amount, max: p.max, lastRefresh: Date.now() })) },
         players: { [myId]: { name, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false } }
       });
@@ -630,7 +628,6 @@ async function startVoice() {
     voice.localStream.getAudioTracks().forEach(t => t.enabled = false);
     voice.enabled = true;
     
-    // Инициализируем визуализатор громкости
     voice.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = voice.audioCtx.createMediaStreamSource(voice.localStream);
     voice.analyzer = voice.audioCtx.createAnalyser();
@@ -730,7 +727,7 @@ async function createPeer(peerId, isInitiator) {
     await pc.setLocalDescription(offer);
     await set(ref(db, `rooms/${MP.roomId}/voice/${MP.myId}/offer`), { sdp: offer.sdp, type: offer.type, to: peerId });
   }
-  return pc;
+  return peer;
 }
 
 function setTalking(on) {
@@ -755,7 +752,6 @@ if (ptt) {
   ptt.addEventListener('pointerleave', () => setTalking(false));
 }
 
-// Функция обновления визуальных индикаторов
 function updateVoiceUI(type, ok, text) {
   if (type === 'mic') {
     const dot = document.getElementById('micStatusDot');
@@ -770,7 +766,6 @@ function updateVoiceUI(type, ok, text) {
   }
 }
 
-// Визуализатор громкости
 function drawMicVolume() {
   if (voice.enabled && voice.analyzer) {
     const data = new Uint8Array(voice.analyzer.frequencyBinCount);
@@ -778,7 +773,7 @@ function drawMicVolume() {
     let sum = 0;
     for (let i = 0; i < data.length; i++) sum += data[i];
     const avg = sum / data.length;
-    const vol = Math.min(100, (avg / 255) * 300); // Усиливаем для наглядности
+    const vol = Math.min(100, (avg / 255) * 300);
     const fill = document.getElementById('micVolumeFill');
     if (fill) fill.style.width = vol + '%';
   }
@@ -1873,7 +1868,7 @@ function init() {
 
   safe(initWorld); safe(renderShop); safe(renderTech); safe(renderCraft); safe(updateHUD); safe(renderCollection); safe(renderAchievements);
 
-  log('Добро пожаловать! Обновление v24: Визуальный дебаг микрофона.', 'warn');
+  log('Добро пожаловать! Обновление v25: Фикс правил Firebase.', 'warn');
   
   lastFrame = performance.now(); requestAnimationFrame(gameLoop);
   window.addEventListener('beforeunload', () => safe(saveState));
