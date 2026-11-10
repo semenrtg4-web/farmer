@@ -175,6 +175,26 @@
   #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 1000; transition: opacity 0.1s; }
   #flash.active { opacity: 0.3; }
 
+  /* Индикаторы связи и микрофона */
+  #connStatus {
+    position: fixed; bottom: 20px; left: 20px; z-index: 999;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .conn-badge {
+    background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; padding: 6px 12px; color: #fff; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #e05555; }
+  .conn-dot.green { background: #6fcf6f; box-shadow: 0 0 8px #6fcf6f; }
+  .conn-dot.yellow { background: #e8b04a; }
+  
+  /* Полоска громкости микрофона */
+  #micVolumeWrap {
+    width: 100px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;
+  }
+  #micVolumeFill { height: 100%; width: 0%; background: #6fcf6f; transition: width 0.05s; }
+
   #pttBtn {
     position: fixed; bottom: 150px; right: 20px; width: 70px; height: 70px; border-radius: 50%;
     background: var(--accent); border: 3px solid #fff; font-size: 30px; z-index: 999; cursor: pointer;
@@ -209,6 +229,7 @@
     .needleCollection { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
     .needleCard { height: 50px; font-size: 24px; }
     #pttBtn { display: flex; }
+    #connStatus { bottom: 10px; left: 10px; transform: scale(0.85); transform-origin: bottom left; }
   }
   @media (max-width: 380px) {
     .mobileControls .dpad { grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); bottom: 12px; left: 12px; }
@@ -331,6 +352,23 @@
   </div>
 </div>
 
+<div id="connStatus">
+  <div class="conn-badge">
+    <span>Микрофон:</span>
+    <div class="conn-dot" id="micStatusDot"></div>
+    <span id="micStatusText">Выкл</span>
+  </div>
+  <div class="conn-badge">
+    <span>Громкость:</span>
+    <div id="micVolumeWrap"><div id="micVolumeFill"></div></div>
+  </div>
+  <div class="conn-badge">
+    <span>Связь:</span>
+    <div class="conn-dot" id="peerStatusDot"></div>
+    <span id="peerStatusText">Нет</span>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <h2 id="modalTitle">Заголовок</h2>
@@ -344,10 +382,9 @@
 
 <script type="module">
 /* =========================================================================
-   NEEDLE IN THE HAYSTACK v23 — CACHE BUSTER + VOICE FIX
+   NEEDLE IN THE HAYSTACK v24 — VISUAL VOICE DEBUG
    ========================================================================= */
 
-// 1. ПРИНУДИТЕЛЬНЫЙ СБРОС КЭША (чтобы у всех была одна версия)
 if (!location.search.includes('v=')) {
   const sep = location.search ? '&' : '?';
   location.replace(location.pathname + location.search + sep + 'v=' + Date.now() + location.hash);
@@ -375,10 +412,10 @@ const IS_MOBILE = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPa
 
 let MP = { ready: false, roomId: null, myId: null, isHost: false };
 let otherPlayers = {};
-let voice = { localStream: null, peers: {}, enabled: false };
+let voice = { localStream: null, peers: {}, enabled: false, audioCtx: null, analyzer: null };
 
 const CONFIG = {
-  totalNeedles: 24, saveKey: 'nih_save_v23', themeKey: 'nih_theme',
+  totalNeedles: 24, saveKey: 'nih_save_v24', themeKey: 'nih_theme',
   worldW: 1400, worldH: 1050, playerRadius: 24, playerSpeed: 260,
   carryBase: 15, haySellPrice: 2, hayPilesCount: 10, hayPerPile: 6,
   pileReplenishTime: 12, actionRadius: 80,
@@ -530,7 +567,7 @@ async function initMultiplayer() {
       
       const initialPiles = makeHayPiles();
       await set(ref(db, 'rooms/' + roomId), {
-        meta: { createdAt: Date.now(), version: 23 },
+        meta: { createdAt: Date.now(), version: 24 },
         state: { hay: 0, money: 0, needles: 0, strawsTotal: 0, totalDeposited: 0, totalMoneyEarned: 0, shop: {}, tech: {}, workers: 0, currentLocation: 'warehouse', hayPiles: initialPiles.map(p => ({ x: p.x, y: p.y, amount: p.amount, max: p.max, lastRefresh: Date.now() })) },
         players: { [myId]: { name, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false } }
       });
@@ -586,9 +623,21 @@ async function initMultiplayer() {
 async function startVoice() {
   if (!MP.ready) return;
   try {
-    voice.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    voice.localStream = await navigator.mediaDevices.getUserMedia({ 
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
+      video: false 
+    });
     voice.localStream.getAudioTracks().forEach(t => t.enabled = false);
     voice.enabled = true;
+    
+    // Инициализируем визуализатор громкости
+    voice.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = voice.audioCtx.createMediaStreamSource(voice.localStream);
+    voice.analyzer = voice.audioCtx.createAnalyser();
+    voice.analyzer.fftSize = 256;
+    source.connect(voice.analyzer);
+    
+    updateVoiceUI('mic', true, 'Готов');
     log('🎤 Микрофон готов! Жми G или кнопку 🎤, чтобы говорить.', 'ok');
     
     if (IS_MOBILE) {
@@ -597,6 +646,7 @@ async function startVoice() {
     }
   } catch (e) {
     console.warn('Нет доступа к микрофону', e);
+    updateVoiceUI('mic', false, 'Ошибка');
     log('⚠ Нет доступа к микрофону. Разреши его в браузере.', 'bad');
     return;
   }
@@ -649,6 +699,8 @@ async function createPeer(peerId, isInitiator) {
 
   pc.ontrack = (event) => {
     console.log('🎧 Получен аудиопоток от', peerId);
+    updateVoiceUI('peer', true, 'Связь есть');
+    
     const audio = new Audio();
     audio.srcObject = event.streams[0];
     audio.autoplay = true;
@@ -666,6 +718,11 @@ async function createPeer(peerId, isInitiator) {
 
   pc.onconnectionstatechange = () => {
     console.log(`🔗 Соединение с ${peerId}: ${pc.connectionState}`);
+    if (pc.connectionState === 'connected') {
+      updateVoiceUI('peer', true, 'Связь есть');
+    } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      updateVoiceUI('peer', false, 'Обрыв');
+    }
   };
 
   if (isInitiator) {
@@ -697,6 +754,37 @@ if (ptt) {
   ptt.addEventListener('pointerup', e => { e.preventDefault(); setTalking(false); });
   ptt.addEventListener('pointerleave', () => setTalking(false));
 }
+
+// Функция обновления визуальных индикаторов
+function updateVoiceUI(type, ok, text) {
+  if (type === 'mic') {
+    const dot = document.getElementById('micStatusDot');
+    const txt = document.getElementById('micStatusText');
+    if (dot) dot.className = 'conn-dot ' + (ok ? 'green' : '');
+    if (txt) txt.textContent = text;
+  } else if (type === 'peer') {
+    const dot = document.getElementById('peerStatusDot');
+    const txt = document.getElementById('peerStatusText');
+    if (dot) dot.className = 'conn-dot ' + (ok ? 'green' : '');
+    if (txt) txt.textContent = text;
+  }
+}
+
+// Визуализатор громкости
+function drawMicVolume() {
+  if (voice.enabled && voice.analyzer) {
+    const data = new Uint8Array(voice.analyzer.frequencyBinCount);
+    voice.analyzer.getByteFrequencyData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += data[i];
+    const avg = sum / data.length;
+    const vol = Math.min(100, (avg / 255) * 300); // Усиливаем для наглядности
+    const fill = document.getElementById('micVolumeFill');
+    if (fill) fill.style.width = vol + '%';
+  }
+  requestAnimationFrame(drawMicVolume);
+}
+drawMicVolume();
 
 const AC = window.AudioContext || window.webkitAudioContext; let audioCtx = null;
 function ensureAudio() { try { if (!AC) return; if (!audioCtx) audioCtx = new AC(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {} }
@@ -1785,7 +1873,7 @@ function init() {
 
   safe(initWorld); safe(renderShop); safe(renderTech); safe(renderCraft); safe(updateHUD); safe(renderCollection); safe(renderAchievements);
 
-  log('Добро пожаловать! Обновление v23: Сброс кэша + Фикс звука.', 'warn');
+  log('Добро пожаловать! Обновление v24: Визуальный дебаг микрофона.', 'warn');
   
   lastFrame = performance.now(); requestAnimationFrame(gameLoop);
   window.addEventListener('beforeunload', () => safe(saveState));
