@@ -201,6 +201,29 @@
   }
   #pttBtn:active { transform: scale(0.9); }
 
+  /* ЧАТ */
+  #chatWrap {
+    position: fixed; bottom: 20px; right: 20px; width: 300px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  #chatMessages {
+    max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13px;
+    pointer-events: auto; scrollbar-width: thin;
+  }
+  .chat-msg { color: #fff; word-wrap: break-word; }
+  .chat-msg .author { color: var(--accent); font-weight: 700; margin-right: 4px; }
+  #chatInputWrap {
+    display: flex; gap: 6px; pointer-events: auto;
+  }
+  #chatInput {
+    flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.6); color: #fff; font-family: inherit; font-size: 13px;
+  }
+  #chatInput:focus { outline: none; border-color: var(--accent); }
+  #chatSend {
+    padding: 0 16px; border-radius: 8px; background: var(--accent); color: #000; font-weight: 700; border: none; cursor: pointer;
+  }
+
   @media (max-width: 768px), (pointer: coarse) {
     #app { padding: 6px; gap: 6px; }
     .topbar { padding: 6px 10px; gap: 6px; flex-wrap: nowrap; }
@@ -228,6 +251,7 @@
     .needleCard { height: 50px; font-size: 24px; }
     #pttBtn { display: flex; }
     #connStatus { bottom: 10px; left: 10px; transform: scale(0.85); transform-origin: bottom left; }
+    #chatWrap { bottom: 10px; right: 10px; width: calc(100% - 20px); transform: scale(0.9); transform-origin: bottom right; }
   }
   @media (max-width: 380px) {
     .mobileControls .dpad { grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); bottom: 12px; left: 12px; }
@@ -367,6 +391,14 @@
   </div>
 </div>
 
+<div id="chatWrap">
+  <div id="chatMessages"></div>
+  <div id="chatInputWrap">
+    <input type="text" id="chatInput" placeholder="Написать в чат..." maxlength="50">
+    <button id="chatSend">▶</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <h2 id="modalTitle">Заголовок</h2>
@@ -380,7 +412,7 @@
 
 <script type="module">
 /* =========================================================================
-   NEEDLE IN THE HAYSTACK v25 — FIREBASE RULES FIX
+   NEEDLE IN THE HAYSTACK v26 — TEXT CHAT
    ========================================================================= */
 
 if (!location.search.includes('v=')) {
@@ -389,7 +421,7 @@ if (!location.search.includes('v=')) {
 }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, get, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { getDatabase, ref, onValue, set, get, update, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -413,7 +445,7 @@ let otherPlayers = {};
 let voice = { localStream: null, peers: {}, enabled: false, audioCtx: null, analyzer: null };
 
 const CONFIG = {
-  totalNeedles: 24, saveKey: 'nih_save_v25', themeKey: 'nih_theme',
+  totalNeedles: 24, saveKey: 'nih_save_v26', themeKey: 'nih_theme',
   worldW: 1400, worldH: 1050, playerRadius: 24, playerSpeed: 260,
   carryBase: 15, haySellPrice: 2, hayPilesCount: 10, hayPerPile: 6,
   pileReplenishTime: 12, actionRadius: 80,
@@ -515,6 +547,7 @@ function triggerFlash() { const f = document.getElementById('flash'); f.classLis
 
 let S = defaultState();
 S.world.hayPiles = makeHayPiles();
+let myName = 'Игрок';
 
 function getAutoMultiplier() { if (S.tech['auto3']) return 1.0; if (S.tech['auto2']) return 0.5; if (S.tech['auto1']) return 0.25; return 0; }
 function getActiveTool() { const id = S.equippedTool; if (!id || !TOOLS[id]) return null; const lvl = S.shop[id] || 0; if (lvl <= 0) return null; return { id, ...TOOLS[id], level: lvl }; }
@@ -548,14 +581,14 @@ async function initMultiplayer() {
     const params = new URLSearchParams(location.search);
     let roomId = params.get('room');
     const myId = 'p_' + Math.random().toString(36).slice(2, 10);
-    const name = prompt('Твоё имя (для мультиплеера)?') || 'Игрок';
+    myName = prompt('Твоё имя (для мультиплеера)?') || 'Игрок';
 
     if (roomId) {
       roomId = roomId.toUpperCase();
       const snap = await get(ref(db, 'rooms/' + roomId));
       if (!snap.exists()) { alert('Комната не найдена: ' + roomId); return; }
       
-      await update(ref(db, `rooms/${roomId}/players/${myId}`), { name, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false });
+      await update(ref(db, `rooms/${roomId}/players/${myId}`), { name: myName, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false });
       MP = { ready: true, roomId, myId, isHost: false };
     } else {
       const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -565,9 +598,9 @@ async function initMultiplayer() {
       
       const initialPiles = makeHayPiles();
       await set(ref(db, 'rooms/' + roomId), {
-        meta: { createdAt: Date.now(), version: 25 },
+        meta: { createdAt: Date.now(), version: 26 },
         state: { hay: 0, money: 0, needles: 0, strawsTotal: 0, totalDeposited: 0, totalMoneyEarned: 0, shop: {}, tech: {}, workers: 0, currentLocation: 'warehouse', hayPiles: initialPiles.map(p => ({ x: p.x, y: p.y, amount: p.amount, max: p.max, lastRefresh: Date.now() })) },
-        players: { [myId]: { name, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false } }
+        players: { [myId]: { name: myName, hat: 'none', x: 250, y: 525, dir: 0, carried: 0, lastSeen: Date.now(), talking: false } }
       });
       
       history.replaceState(null, '', '?room=' + roomId);
@@ -606,6 +639,31 @@ async function initMultiplayer() {
         otherPlayers[id] = p;
       }
     });
+
+    // ЧАТ
+    onValue(ref(db, `rooms/${roomId}/chat`), (snap) => {
+      const msgs = snap.val() || {};
+      const chatDiv = document.getElementById('chatMessages');
+      chatDiv.innerHTML = '';
+      Object.values(msgs).forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'chat-msg';
+        el.innerHTML = `<span class="author">${m.author}:</span> ${m.text}`;
+        chatDiv.appendChild(el);
+      });
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    });
+
+    document.getElementById('chatSend').addEventListener('click', sendChat);
+    document.getElementById('chatInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChat(); });
+
+    function sendChat() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || !MP.ready) return;
+      input.value = '';
+      push(ref(db, `rooms/${MP.roomId}/chat`), { author: myName, text: text, time: Date.now() });
+    }
 
     console.log('✅ Мультиплеер активен. Комната:', roomId);
     log('Мультиплеер активен. Комната: ' + roomId, 'ok');
@@ -689,7 +747,12 @@ async function startVoice() {
 }
 
 async function createPeer(peerId, isInitiator) {
-  const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  const pc = new RTCPeerConnection({ 
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ] 
+  });
   voice.peers[peerId] = pc;
 
   voice.localStream.getTracks().forEach(track => pc.addTrack(track, voice.localStream));
@@ -727,7 +790,7 @@ async function createPeer(peerId, isInitiator) {
     await pc.setLocalDescription(offer);
     await set(ref(db, `rooms/${MP.roomId}/voice/${MP.myId}/offer`), { sdp: offer.sdp, type: offer.type, to: peerId });
   }
-  return peer;
+  return pc;
 }
 
 function setTalking(on) {
@@ -742,7 +805,7 @@ function setTalking(on) {
   }
 }
 
-window.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'g' && !e.repeat) setTalking(true); });
+window.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'g' && !e.repeat && document.activeElement.tagName !== 'INPUT') setTalking(true); });
 window.addEventListener('keyup', e => { if (e.key.toLowerCase() === 'g') setTalking(false); });
 
 const ptt = document.getElementById('pttBtn');
@@ -949,10 +1012,10 @@ function initWorld() {
 
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    if (['arrowup','w','ц'].includes(k)) { world.keys.up = true; e.preventDefault(); }
-    else if (['arrowdown','s','ы'].includes(k)) { world.keys.down = true; e.preventDefault(); }
-    else if (['arrowleft','a','ф'].includes(k)) { world.keys.left = true; e.preventDefault(); }
-    else if (['arrowright','d','в'].includes(k)) { world.keys.right = true; e.preventDefault(); }
+    if (['arrowup','w','ц'].includes(k) && document.activeElement.tagName !== 'INPUT') { world.keys.up = true; e.preventDefault(); }
+    else if (['arrowdown','s','ы'].includes(k) && document.activeElement.tagName !== 'INPUT') { world.keys.down = true; e.preventDefault(); }
+    else if (['arrowleft','a','ф'].includes(k) && document.activeElement.tagName !== 'INPUT') { world.keys.left = true; e.preventDefault(); }
+    else if (['arrowright','d','в'].includes(k) && document.activeElement.tagName !== 'INPUT') { world.keys.right = true; e.preventDefault(); }
     else if (k === ' ' || k === 'e' || k === 'у') { e.preventDefault(); performAction(); }
   });
   window.addEventListener('keyup', (e) => {
@@ -1868,7 +1931,7 @@ function init() {
 
   safe(initWorld); safe(renderShop); safe(renderTech); safe(renderCraft); safe(updateHUD); safe(renderCollection); safe(renderAchievements);
 
-  log('Добро пожаловать! Обновление v25: Фикс правил Firebase.', 'warn');
+  log('Добро пожаловать! Обновление v26: Текстовый чат.', 'warn');
   
   lastFrame = performance.now(); requestAnimationFrame(gameLoop);
   window.addEventListener('beforeunload', () => safe(saveState));
